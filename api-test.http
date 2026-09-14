@@ -1,0 +1,169 @@
+### 1. Health Check API
+GET http://localhost:8080/api/v1/health
+Accept: application.json
+
+### 2. Auth - Register New Account
+POST http://localhost:8080/api/v1/auth/register
+Content-Type: application.json
+
+{
+  "username": "admin",
+  "password": "Password123!",
+  "fullName": "System Administrator",
+  "email": "admin@utc.edu.vn",
+  "phone": "0987654321",
+  "roleId": 1
+}
+
+### 3. Auth - Login Account
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application.json
+
+{
+  "username": "admin",
+  "password": "Password123!"
+}
+
+### 4. Auth - Refresh Token
+POST http://localhost:8080/api/v1/auth/refresh-token
+Content-Type: application.json
+
+{
+  "refreshToken": "<your-jwt-token>"
+}
+
+### 5. Auth - Change Password
+POST http://localhost:8080/api/v1/auth/change-password
+Content-Type: application.json
+
+{
+  "username": "admin",
+  "oldPassword": "Password123!",
+  "newPassword": "NewPassword123!"
+}
+
+### 6. Auth - Forgot Password (Send Reset Token via Email)
+POST http://localhost:8080/api/v1/auth/forgot-password?email=admin@utc.edu.vn
+
+### 7. Auth - Reset Password with Token
+POST http://localhost:8080/api/v1/auth/reset-password
+Content-Type: application.json
+
+{
+  "email": "admin@utc.edu.vn",
+  "resetToken": "<uuid-reset-token>",
+  "newPassword": "NewPassword123!"
+}
+
+### 8. Upload Image to Cloudinary (Form Data)
+POST http://localhost:8080/api/v1/upload/image
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpg"
+Content-Type: image/jpeg
+
+< ./sample.jpg
+--WebAppBoundary--
+
+### 9. Category - Create Category
+POST http://localhost:8080/api/v1/categories
+Content-Type: application.json
+
+{
+  "name": "Sữa & Chế Phẩm Sữa",
+  "slug": "sua-che-pham-sua",
+  "description": "Các loại sữa tươi, sữa chua, bơ, phô mai",
+  "isActive": true
+}
+
+### 10. Category - Get All Categories
+GET http://localhost:8080/api/v1/categories
+Accept: application.json
+
+### 11. Supplier - Create Supplier
+POST http://localhost:8080/api/v1/suppliers
+Content-Type: application.json
+
+{
+  "name": "Công ty Cổ phần Sữa Việt Nam (Vinamilk)",
+  "phone": "02854155555",
+  "address": "Số 10 Tân Trào, P. Tân Phú, Quận 7, TP. HCM",
+  "isActive": true
+}
+
+### 12. Supplier - Get All Suppliers
+GET http://localhost:8080/api/v1/suppliers
+Accept: application.json
+
+### 13. Product - Create Product
+POST http://localhost:8080/api/v1/products
+Content-Type: application.json
+
+{
+  "categoryId": 1,
+  "sku": "SP-VNM-1L-001",
+  "name": "Sữa tươi tiệt trùng Vinamilk 100% Không đường 1L",
+  "unit": "Hộp",
+  "isWeighing": false,
+  "price": 35000.00,
+  "costPrice": 28000.00,
+  "stockQuantity": 100.000,
+  "origin": "Việt Nam",
+  "imageUrl": "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+  "isActive": true
+}
+
+### 14. Product - Get All Products
+GET http://localhost:8080/api/v1/products
+Accept: application.json
+
+### 15. Product - Search Product by Name
+GET http://localhost:8080/api/v1/products/search?keyword=Vinamilk
+Accept: application.json
+
+### 16. Order - Create Sales Order
+POST http://localhost:8080/api/v1/orders
+Content-Type: application.json
+
+{
+  "orderCode": "ORD-20260914-001",
+  "channel": "STORE",
+  "userId": 1,
+  "cashierId": 1,
+  "customerName": "Nguyễn Văn A",
+  "customerPhone": "0912345678",
+  "shippingAddress": "Cầu Giấy, Hà Nội",
+  "totalAmount": 70000.00,
+  "discountAmount": 0.00,
+  "finalAmount": 70000.00,
+  "paidAmount": 100000.00,
+  "changeAmount": 30000.00,
+  "paymentMethod": "CASH",
+  "paymentStatus": "PAID",
+  "orderStatus": "COMPLETED",
+  "items": [
+    {
+      "productId": 1,
+      "productName": "Sữa tươi tiệt trùng Vinamilk 100% Không đường 1L",
+      "unit": "Hộp",
+      "quantity": 2.000,
+      "unitPrice": 35000.00
+    }
+  ]
+}
+
+### 17. Order - Get All Orders
+GET http://localhost:8080/api/v1/orders
+Accept: application.json
+
+### 18. Payment - Create VNPAY Payment URL for Order #1
+GET http://localhost:8080/api/v1/payment/vnpay/create-payment/1
+Accept: application.json
+
+### 19. Inventory - View Stock History of Product #1
+GET http://localhost:8080/api/v1/inventory-transactions/product/1
+Accept: application.json
+
+### 20. Swagger UI Docs (Open in Browser)
+# http://localhost:8080/api/swagger-ui.html

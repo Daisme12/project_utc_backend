@@ -1,0 +1,93 @@
+# ===================================================================
+# Spring Boot 3 Application Configuration
+# ===================================================================
+
+# 1. Server Configuration
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/api}
+
+spring:
+  application:
+    name: project-backend-utc
+
+  # 4a. Multipart / File Upload Limit (Cloudinary prep)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:50MB}
+
+  # 2. Database Configuration (Default H2 In-Memory for Instant Run & Testing)
+  # Để chuyển sang MySQL: Bật MySQL trên máy và truyền biến DB_URL hoặc đổi sang profile mysql
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:utc_backend_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+
+  # H2 Console (Truy cập tại http://localhost:8080/api/h2-console)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
+  # JPA & Hibernate Configuration
+  jpa:
+    database-platform: ${JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: ${JPA_FORMAT_SQL:true}
+
+  # 4b. JavaMailSender Configuration (Gmail SMTP)
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:manhbd1204@gmail.com}
+    password: ${MAIL_PASSWORD:iuazrqdvyribwdnt}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+# 3. Authentication Configuration (JWT)
+app:
+  jwt:
+    # 256-bit Secret Key (Base64/Hex formatted string)
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours in milliseconds
+
+# 4c. Third-Party Integration Configuration
+
+# Cloudinary Storage (Signed Mode with project-utc folder & preset)
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:dzz1nibmx}
+  api-key: ${CLOUDINARY_API_KEY:675774296548133}
+  api-secret: ${CLOUDINARY_API_SECRET:9FBGvdl8mZLEunoegadNPmyfCXQ}
+  folder: ${CLOUDINARY_FOLDER:project-utc}
+  upload-preset: ${CLOUDINARY_UPLOAD_PRESET:project-utc}
+
+# VNPAY Sandbox Gateway
+vnpay:
+  pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+  return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/v1/payment/vnpay-callback}
+  tmn-code: ${VNPAY_TMN_CODE:6Q5K1JG8}
+  hash-secret: ${VNPAY_HASH_SECRET:TMYUQLNJBMYWSLFBYQGQUDODVHSEPPHL}
+
+# 5. API Documentation (SpringDoc OpenAPI / Swagger UI)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
