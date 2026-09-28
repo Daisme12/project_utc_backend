@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
@@ -14,7 +15,7 @@ export default function Header() {
   const [selectedLocation, setSelectedLocation] = useState("Hà Nội, Cầu Giấy");
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { totalItems } = useCart();
+  const { items, totalItems, totalPrice, removeItem } = useCart();
 
   // Trạng thái tài khoản người dùng
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -380,21 +381,149 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Cart Icon */}
-          <Link
-            href="/cart"
-            className="relative p-2 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-            aria-label="Giỏ hàng"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25c-.669 0-1.189-.578-1.119-1.243l1.263-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-            </svg>
-            {totalItems > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#195329] text-white text-[10px] font-bold flex items-center justify-center shadow-xs animate-scale">
-                {totalItems}
-              </span>
-            )}
-          </Link>
+          {/* Cart Icon with Hover Dropdown */}
+          <div className="relative group">
+            <Link
+              href="/cart"
+              className="relative p-2 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors block cursor-pointer"
+              aria-label="Giỏ hàng"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25c-.669 0-1.189-.578-1.119-1.243l1.263-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+              {totalItems > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#195329] text-white text-[10px] font-bold flex items-center justify-center shadow-xs animate-scale">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
+
+            {/* Dropdown Menu on Hover */}
+            <div className="absolute top-full right-0 pt-2 w-80 sm:w-96 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none group-hover:pointer-events-auto">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-zinc-800 p-3.5 space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-[#113a1b] dark:text-emerald-400">
+                    <span>🛒</span>
+                    <span>Giỏ Hàng Tươi Sạch ({totalItems})</span>
+                  </div>
+                  <Link
+                    href="/cart"
+                    className="text-[11px] font-bold text-[#195329] dark:text-emerald-400 hover:underline"
+                  >
+                    Xem chi tiết &gt;
+                  </Link>
+                </div>
+
+                {/* Items List or Empty State */}
+                {items.length === 0 ? (
+                  <div className="py-6 text-center space-y-2">
+                    <span className="text-3xl block">🧺</span>
+                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                      Giỏ hàng của bạn đang trống
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Chọn thêm thịt mát chuẩn EU và rau củ VietGAP nhé!
+                    </p>
+                    <Link
+                      href="/products"
+                      className="inline-block mt-1 px-4 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#195329] dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition-colors"
+                    >
+                      Khám phá sản phẩm
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1 divide-y divide-gray-100 dark:divide-zinc-800">
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="pt-2 first:pt-0 flex items-center justify-between gap-3 group/item"
+                        >
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-gray-50 dark:bg-zinc-800 flex-shrink-0 border border-gray-100 dark:border-zinc-700">
+                              <Image
+                                src={
+                                  item.image ||
+                                  "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80"
+                                }
+                                alt={item.name}
+                                fill
+                                sizes="44px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
+                                {item.name}
+                              </h4>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {item.packWeight || "Khay 300g"} • SL: {item.quantity}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs font-black text-[#195329] dark:text-emerald-400">
+                              {new Intl.NumberFormat("vi-VN").format(item.price * item.quantity)}đ
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeItem(item.id);
+                                toast.info(`Đã xóa ${item.name}`);
+                              }}
+                              className="text-gray-300 hover:text-red-500 text-xs p-1 transition-colors cursor-pointer"
+                              title="Xóa"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Freeship Progress Hint */}
+                    <div className="p-2 rounded-xl bg-[#f2faf3] dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-[11px]">
+                      {totalPrice >= 150000 ? (
+                        <span className="font-bold text-[#195329] dark:text-emerald-300 flex items-center gap-1">
+                          <span>🎉</span>
+                          <span>Đã đủ điều kiện MIỄN PHÍ VẬN CHUYỂN 2H!</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-600 dark:text-gray-300">
+                          Mua thêm{" "}
+                          <strong className="text-red-600 font-extrabold">
+                            {new Intl.NumberFormat("vi-VN").format(150000 - totalPrice)}đ
+                          </strong>{" "}
+                          để được Freeship 2H
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Subtotal & CTA */}
+                    <div className="pt-2 border-t border-gray-100 dark:border-zinc-800 space-y-2">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs text-gray-500">Tạm tính giỏ hàng:</span>
+                        <span className="text-sm font-black text-[#195329] dark:text-emerald-400">
+                          {new Intl.NumberFormat("vi-VN").format(totalPrice)}đ
+                        </span>
+                      </div>
+
+                      <Link
+                        href="/cart"
+                        className="w-full py-2.5 px-3 rounded-xl bg-[#195329] hover:bg-[#12421f] text-white text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/20 active:scale-98"
+                      >
+                        <span>XEM GIỎ HÀNG & THANH TOÁN</span>
+                        <span>→</span>
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* User Account / Auth Buttons */}
           {!isLoggedIn ? (
