@@ -1,0 +1,47 @@
+# Target build directory
+target/
+*.war
+*.ear
+*.jar
+*.rar
+
+# Eclipse IDE
+.classpath
+.project
+.settings/
+bin/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# macOS / OS Files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Maven Wrapper binaries
+.mvn/wrapper/maven-wrapper.jar
+
+# Sensitive environment and configuration files
+.env
+.env.*
+*.env
+application-local.yml
+application-local.properties
+application-secret.yml
+application-secret.properties
+application-dev.yml
+
+# Database temporary files
+*.db
+*.sqlite
