@@ -1,13 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProductCard, { MeatProduct } from "./ProductCard";
+import { storeService, mapProductToMeatProduct } from "@/services/storeService";
 
 export default function FeaturedProducts() {
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [apiProducts, setApiProducts] = useState<MeatProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    storeService.getProducts().then((res) => {
+      if (isMounted && res && res.length > 0) {
+        setApiProducts(res.map(mapProductToMeatProduct));
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) setLoading(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const tabs = [
-    { id: "all", label: "Tất cả sản phẩm (24)" },
+    { id: "all", label: `Tất cả sản phẩm (${apiProducts.length || 24})` },
     { id: "sale", label: "🔥 Săn Sale Giờ Vàng" },
     { id: "small", label: "Khay nhỏ 300g" },
     { id: "large", label: "Khay lớn 500g" },
@@ -15,7 +33,7 @@ export default function FeaturedProducts() {
     { id: "combo", label: "Ưu đãi combo" },
   ];
 
-  const products: MeatProduct[] = [
+  const defaultProducts: MeatProduct[] = [
     {
       id: 1,
       name: "Sườn Thăn Heo Truyền Thống",
@@ -134,17 +152,19 @@ export default function FeaturedProducts() {
     },
   ];
 
+  const activeProducts = apiProducts.length > 0 ? apiProducts : defaultProducts;
+
   const filteredProducts =
     activeTab === "all"
-      ? products
+      ? activeProducts
       : activeTab === "sale"
-      ? products.filter(
+      ? activeProducts.filter(
           (p) =>
             Boolean(p.discountBadge) ||
             Boolean(p.originalPrice) ||
             p.category === "combo"
         )
-      : products.filter(
+      : activeProducts.filter(
           (p) =>
             p.category === activeTab ||
             (activeTab === "small" && p.packWeight.includes("300g"))

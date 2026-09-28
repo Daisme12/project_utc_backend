@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ProductListHeader from "./ProductListHeader";
 import ProductFilterSidebar, { FilterState } from "./ProductFilterSidebar";
 import ProductGridArea from "./ProductGridArea";
-import { MOCK_PRODUCTS, CATEGORIES } from "@/data/products";
+import { Product, CategoryItem } from "@/types/product";
+import { storeService } from "@/services/storeService";
 
 interface ProductCatalogClientProps {
   categorySlug?: string;
@@ -15,6 +16,10 @@ export default function ProductCatalogClient({
   categorySlug = "",
   initialSearch = "",
 }: ProductCatalogClientProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [filters, setFilters] = useState<FilterState>({
     categorySlug,
@@ -25,24 +30,42 @@ export default function ProductCatalogClient({
     weights: [],
   });
 
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      storeService.getProducts(),
+      storeService.getCategories(),
+    ]).then(([pList, cList]) => {
+      if (!isMounted) return;
+      if (pList && pList.length > 0) setProducts(pList);
+      if (cList && cList.length > 0) setCategories(cList);
+      setLoading(false);
+    }).catch(() => {
+      if (isMounted) setLoading(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Tìm danh mục hiện tại nếu có
   const currentCategory = useMemo(() => {
-    return CATEGORIES.find((c) => c.slug === filters.categorySlug);
-  }, [filters.categorySlug]);
+    return categories.find((c) => c.slug === filters.categorySlug);
+  }, [categories, filters.categorySlug]);
 
   // Lọc sản phẩm theo danh mục và bộ lọc
   const categoryProducts = useMemo(() => {
-    if (!filters.categorySlug) return MOCK_PRODUCTS;
+    if (!filters.categorySlug) return products;
     if (filters.categorySlug === "san-sale") {
-      return MOCK_PRODUCTS.filter(
+      return products.filter(
         (p) =>
           p.categorySlug === "san-sale" ||
           Boolean(p.discountBadge) ||
           (p.originalPrice && p.originalPrice > p.price)
       );
     }
-    return MOCK_PRODUCTS.filter((p) => p.categorySlug === filters.categorySlug);
-  }, [filters.categorySlug]);
+    return products.filter((p) => p.categorySlug === filters.categorySlug);
+  }, [products, filters.categorySlug]);
 
   const handleReset = () => {
     setSearchQuery("");
@@ -72,6 +95,7 @@ export default function ProductCatalogClient({
           onFilterChange={setFilters}
           onReset={handleReset}
           filteredCount={categoryProducts.length}
+          categories={categories}
         />
 
         {/* Product Grid Area */}

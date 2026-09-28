@@ -4,10 +4,12 @@ import java.math.BigDecimal;
 
 public record OrderItemResponseDto(
     Long id,
-    ProductResponseDto product,
+    Long productId,
     String productName,
+    String packWeight,
     String unit,
     BigDecimal quantity,
     BigDecimal unitPrice,
-    BigDecimal subtotal
+    BigDecimal subtotal,
+    String imageUrl
 ) {}

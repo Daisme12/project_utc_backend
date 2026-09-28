@@ -1,0 +1,35 @@
+#!/bin/sh
+# Lightweight Maven Wrapper delegator for macOS / Linux
+PRG="$0"
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+BASE_DIR=`dirname "$PRG"`
+
+# 1. Check if 'mvn' command exists in system PATH
+if command -v mvn >/dev/null 2>&1; then
+  exec mvn "$@"
+fi
+
+# 2. Check bundled Maven inside IntelliJ IDEA
+INTELLIJ_MVN="/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn"
+if [ -x "$INTELLIJ_MVN" ]; then
+  exec "$INTELLIJ_MVN" "$@"
+fi
+
+# 3. Check common Homebrew locations
+if [ -x "/opt/homebrew/bin/mvn" ]; then
+  exec "/opt/homebrew/bin/mvn" "$@"
+elif [ -x "/usr/local/bin/mvn" ]; then
+  exec "/usr/local/bin/mvn" "$@"
+fi
+
+echo "❌ Không tìm thấy Maven trên hệ thống!"
+echo "Bạn có thể cài đặt nhanh bằng lệnh: brew install maven"
+exit 1

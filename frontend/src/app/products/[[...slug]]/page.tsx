@@ -3,7 +3,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import FloatingCartBar from "@/components/home/FloatingCartBar";
 import ProductCatalogClient from "@/components/products/ProductCatalogClient";
-import { CATEGORIES } from "@/data/products";
+import { storeService } from "@/services/storeService";
 
 interface PageProps {
   params: Promise<{
@@ -17,7 +17,8 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const currentSlug = slug?.[0];
-  const cat = CATEGORIES.find((c) => c.slug === currentSlug);
+  const categories = await storeService.getCategories().catch(() => []);
+  const cat = categories.find((c) => c.slug === currentSlug);
 
   return {
     title: cat

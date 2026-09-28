@@ -1,22 +1,32 @@
 package com.utc.backend.dto;
 
-import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record GoodsReceiptRequestDto(
-    @NotBlank(message = "Mã phiếu nhập không được để trống")
-    @Size(max = 30, message = "Mã phiếu nhập tối đa 30 ký tự")
     String receiptCode,
 
     @NotNull(message = "Nhà cung cấp không được để trống")
     Long supplierId,
 
-    @NotEmpty(message = "Danh sách chi tiết phiếu nhập không được rỗng")
-    @Valid
-    List<GoodsReceiptDetailRequestDto> details
+    @NotNull(message = "Sản phẩm nhập không được để trống")
+    Long productId,
+
+    String batchNumber,
+
+    LocalDate expDate,
+
+    @NotNull(message = "Số lượng nhập không được để trống")
+    @DecimalMin(value = "0.001", message = "Số lượng phải lớn hơn 0")
+    BigDecimal quantity,
+
+    @NotNull(message = "Giá nhập không được để trống")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Giá nhập phải lớn hơn 0")
+    BigDecimal importPrice,
+
+    String note
 ) {}

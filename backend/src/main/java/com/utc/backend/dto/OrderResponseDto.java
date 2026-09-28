@@ -13,16 +13,16 @@ public record OrderResponseDto(
     String customerName,
     String customerPhone,
     String shippingAddress,
+    String deliveryMethod,
+    String note,
     BigDecimal totalAmount,
-    BigDecimal discountAmount,
+    BigDecimal shippingFee,
     BigDecimal finalAmount,
-    BigDecimal paidAmount,
-    BigDecimal changeAmount,
     String paymentMethod,
-    String paymentStatus,
     String orderStatus,
     Boolean isPrinted,
     LocalDateTime printedAt,
     LocalDateTime createdAt,
-    List<OrderItemResponseDto> items
+    List<OrderItemResponseDto> items,
+    List<OrderVoucherResponseDto> vouchers
 ) {}

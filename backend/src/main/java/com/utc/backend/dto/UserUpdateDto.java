@@ -9,7 +9,7 @@ public record UserUpdateDto(
     @Size(max = 100, message = "Họ và tên tối đa 100 ký tự")
     String fullName,
 
-    @Size(max = 15, message = "Số điện thoại tối đa 15 ký tự")
+    @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
     String phone,
 
     @Email(message = "Email không đúng định dạng")
@@ -18,5 +18,5 @@ public record UserUpdateDto(
 
     Boolean isActive,
 
-    Long roleId
+    String role
 ) {}

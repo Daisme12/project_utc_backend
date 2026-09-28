@@ -74,8 +74,24 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    public ProductResponseDto getProductBySlug(String slug) {
+        Product product = productRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với slug: " + slug));
+        return productMapper.toResponseDto(product);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
         return productRepository.findByCategoryId(categoryId).stream()
+                .map(productMapper::toResponseDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getProductsByCategorySlug(String categorySlug) {
+        return productRepository.findByCategory_Slug(categorySlug).stream()
                 .map(productMapper::toResponseDto)
                 .toList();
     }

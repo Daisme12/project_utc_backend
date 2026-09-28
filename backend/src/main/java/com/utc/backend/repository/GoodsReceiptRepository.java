@@ -11,11 +11,14 @@ import java.util.Optional;
 @Repository
 public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long> {
 
-    @EntityGraph(attributePaths = {"supplier", "createdBy"})
+    @EntityGraph(attributePaths = {"supplier", "createdBy", "product"})
     Optional<GoodsReceipt> findByReceiptCode(String receiptCode);
 
     boolean existsByReceiptCode(String receiptCode);
 
-    @EntityGraph(attributePaths = {"supplier", "createdBy"})
+    @EntityGraph(attributePaths = {"supplier", "createdBy", "product"})
     List<GoodsReceipt> findBySupplierId(Long supplierId);
+
+    @EntityGraph(attributePaths = {"supplier", "createdBy", "product"})
+    List<GoodsReceipt> findAll();
 }

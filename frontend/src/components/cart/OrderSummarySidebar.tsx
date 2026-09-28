@@ -3,10 +3,12 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
 
+import { storeService } from "@/services/storeService";
+
 interface OrderSummarySidebarProps {
   subtotal: number;
   itemCount: number;
-  onPlaceOrder: (finalTotal: number) => void;
+  onPlaceOrder: (finalTotal: number, voucherCode?: string) => void;
 }
 
 export default function OrderSummarySidebar({
@@ -15,6 +17,7 @@ export default function OrderSummarySidebar({
   onPlaceOrder,
 }: OrderSummarySidebarProps) {
   const [voucherInput, setVoucherInput] = useState("");
+  const [isCheckingVoucher, setIsCheckingVoucher] = useState(false);
   const [appliedVoucher, setAppliedVoucher] = useState<{
     code: string;
     discount: number;
@@ -38,7 +41,7 @@ export default function OrderSummarySidebar({
     return new Intl.NumberFormat("vi-VN").format(price);
   };
 
-  const handleApplyVoucher = (e: React.FormEvent) => {
+  const handleApplyVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = voucherInput.trim().toUpperCase();
     if (!code) {
@@ -49,6 +52,43 @@ export default function OrderSummarySidebar({
       toast.error("Vui lòng tích chọn sản phẩm trong giỏ trước khi áp mã!");
       return;
     }
+
+    try {
+      setIsCheckingVoucher(true);
+      const dbVoucher = await storeService.getVoucherByCode(code);
+      if (dbVoucher && dbVoucher.isActive) {
+        if (dbVoucher.minOrderAmount && subtotal < dbVoucher.minOrderAmount) {
+          toast.error(
+            `Đơn hàng tối thiểu phải từ ${formatPrice(dbVoucher.minOrderAmount)}đ để dùng mã này`
+          );
+          return;
+        }
+
+        let discount = 0;
+        if (dbVoucher.discountType === "PERCENT") {
+          discount = Math.round((subtotal * dbVoucher.discountValue) / 100);
+          if (dbVoucher.maxDiscountAmount && discount > dbVoucher.maxDiscountAmount) {
+            discount = dbVoucher.maxDiscountAmount;
+          }
+        } else {
+          discount = dbVoucher.discountValue;
+        }
+
+        setAppliedVoucher({
+          code: dbVoucher.code,
+          discount,
+          label: dbVoucher.description || `Giảm ${formatPrice(discount)}đ`,
+        });
+        toast.success(`Áp dụng mã ${dbVoucher.code} thành công! Giảm ${formatPrice(discount)}đ`);
+        return;
+      }
+    } catch {
+      // Fall through to fallback codes
+    } finally {
+      setIsCheckingVoucher(false);
+    }
+
+    // Fallback known promotional codes
     if (code === "GIAM50K" || code === "UBOSALE50") {
       setAppliedVoucher({
         code,
@@ -71,12 +111,7 @@ export default function OrderSummarySidebar({
       });
       toast.success(`Áp dụng mã ${code} thành công! Giảm 20.000đ`);
     } else {
-      setAppliedVoucher({
-        code,
-        discount: 15000,
-        label: "Mã khuyến mại ưu đãi",
-      });
-      toast.success(`Áp dụng mã ${code} thành công! Giảm 15.000đ`);
+      toast.error(`Mã khuyến mại "${code}" không hợp lệ hoặc đã hết lượt dùng`);
     }
   };
 
@@ -226,7 +261,7 @@ export default function OrderSummarySidebar({
         <button
           type="button"
           disabled={!hasItems}
-          onClick={() => onPlaceOrder(finalTotal)}
+          onClick={() => onPlaceOrder(finalTotal, appliedVoucher?.code)}
           className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${
             !hasItems
               ? "bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-gray-500 cursor-not-allowed shadow-none"

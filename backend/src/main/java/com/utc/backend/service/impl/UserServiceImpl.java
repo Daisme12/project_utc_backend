@@ -3,12 +3,10 @@ package com.utc.backend.service.impl;
 import com.utc.backend.dto.UserCreateDto;
 import com.utc.backend.dto.UserResponseDto;
 import com.utc.backend.dto.UserUpdateDto;
-import com.utc.backend.entity.Role;
 import com.utc.backend.entity.User;
 import com.utc.backend.exception.BadRequestException;
 import com.utc.backend.exception.ResourceNotFoundException;
 import com.utc.backend.mapper.UserMapper;
-import com.utc.backend.repository.RoleRepository;
 import com.utc.backend.repository.UserRepository;
 import com.utc.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +21,6 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -40,10 +37,7 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("Số điện thoại '" + dto.phone() + "' đã tồn tại trong hệ thống");
         }
 
-        Role role = roleRepository.findById(dto.roleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với ID: " + dto.roleId()));
-
-        User user = userMapper.toEntity(dto, role);
+        User user = userMapper.toEntity(dto);
         user.setPasswordHash(passwordEncoder.encode(dto.password()));
 
         User savedUser = userRepository.save(user);
@@ -56,13 +50,7 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + id));
 
-        Role role = null;
-        if (dto.roleId() != null) {
-            role = roleRepository.findById(dto.roleId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò với ID: " + dto.roleId()));
-        }
-
-        userMapper.updateEntityFromDto(dto, user, role);
+        userMapper.updateEntityFromDto(dto, user);
         User updatedUser = userRepository.save(user);
         return userMapper.toResponseDto(updatedUser);
     }

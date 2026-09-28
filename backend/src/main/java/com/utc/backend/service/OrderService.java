@@ -9,8 +9,8 @@ public interface OrderService {
     OrderResponseDto createOrder(OrderRequestDto dto);
     OrderResponseDto getOrderById(Long id);
     OrderResponseDto getOrderByCode(String orderCode);
-    List<OrderResponseDto> getOrdersByUser(Long userId);
-    List<OrderResponseDto> getOrdersByStatus(String status);
+    List<OrderResponseDto> getOrdersByUserId(Long userId);
     List<OrderResponseDto> getAllOrders();
     OrderResponseDto updateOrderStatus(Long id, String status);
+    void markAsPrinted(Long id);
 }

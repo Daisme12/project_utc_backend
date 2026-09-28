@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import ProductListingCard from "./ProductListingCard";
-import { Product } from "@/data/products";
+import { Product } from "@/types/product";
 import { FilterState } from "./ProductFilterSidebar";
 
 interface ProductGridAreaProps {
@@ -43,7 +43,7 @@ export default function ProductGridArea({
 
     // 2. Standards
     if (filters.standards.length > 0) {
-      result = result.filter((p) => filters.standards.includes(p.standard));
+      result = result.filter((p) => !!p.standard && filters.standards.includes(p.standard));
     }
 
     // 3. Price Range
@@ -62,7 +62,7 @@ export default function ProductGridArea({
 
     // 4. Weights
     if (filters.weights.length > 0) {
-      result = result.filter((p) => filters.weights.includes(p.weightCategory));
+      result = result.filter((p) => !!p.weightCategory && filters.weights.includes(p.weightCategory));
     }
 
     // 5. Sorting

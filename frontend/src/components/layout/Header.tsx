@@ -7,7 +7,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { logoutAction, checkAuthAction } from "@/actions/auth";
-import { CATEGORIES } from "@/data/products";
+import { CategoryItem } from "@/types/product";
+import { storeService } from "@/services/storeService";
 
 export default function Header() {
   const router = useRouter();
@@ -16,6 +17,15 @@ export default function Header() {
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { items, totalItems, totalPrice, removeItem } = useCart();
+
+  // Dynamic Categories from API
+  const [headerCategories, setHeaderCategories] = useState<CategoryItem[]>([]);
+
+  useEffect(() => {
+    storeService.getCategories().then((cats) => {
+      if (cats && cats.length > 0) setHeaderCategories(cats);
+    }).catch(() => {});
+  }, []);
 
   // Trạng thái tài khoản người dùng
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -609,6 +619,15 @@ export default function Header() {
                       <span className="text-sm">📦</span>
                       <span>Đơn hàng của tôi</span>
                     </Link>
+
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 hover:bg-emerald-50 dark:hover:bg-zinc-800 text-emerald-700 dark:text-emerald-400 font-bold transition-colors"
+                    >
+                      <span className="text-sm">⚡</span>
+                      <span>Hệ Thống Quản Trị (Admin)</span>
+                    </Link>
                   </div>
 
                   <div className="border-t border-gray-100 dark:border-zinc-800 pt-1 mt-1">
@@ -651,7 +670,7 @@ export default function Header() {
                   Khám phá theo danh mục
                 </div>
 
-                {CATEGORIES.map((cat) => (
+                {headerCategories.map((cat) => (
                   <Link
                     key={cat.slug}
                     href={`/products/${cat.slug}`}

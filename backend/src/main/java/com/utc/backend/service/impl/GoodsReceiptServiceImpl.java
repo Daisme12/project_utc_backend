@@ -1,39 +1,45 @@
 package com.utc.backend.service.impl;
 
-import com.utc.backend.dto.GoodsReceiptDetailRequestDto;
 import com.utc.backend.dto.GoodsReceiptRequestDto;
 import com.utc.backend.dto.GoodsReceiptResponseDto;
-import com.utc.backend.entity.*;
+import com.utc.backend.entity.GoodsReceipt;
+import com.utc.backend.entity.Product;
+import com.utc.backend.entity.Supplier;
+import com.utc.backend.entity.User;
 import com.utc.backend.exception.BadRequestException;
 import com.utc.backend.exception.ResourceNotFoundException;
 import com.utc.backend.mapper.GoodsReceiptMapper;
-import com.utc.backend.repository.*;
+import com.utc.backend.repository.GoodsReceiptRepository;
+import com.utc.backend.repository.ProductRepository;
+import com.utc.backend.repository.SupplierRepository;
+import com.utc.backend.repository.UserRepository;
 import com.utc.backend.service.GoodsReceiptService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
     private final GoodsReceiptRepository goodsReceiptRepository;
-    private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final InventoryTransactionRepository inventoryTransactionRepository;
     private final GoodsReceiptMapper goodsReceiptMapper;
 
     @Override
     @Transactional
     public GoodsReceiptResponseDto createGoodsReceipt(GoodsReceiptRequestDto dto, Long createdByUserId) {
-        if (goodsReceiptRepository.existsByReceiptCode(dto.receiptCode())) {
-            throw new BadRequestException("Mã phiếu nhập kho '" + dto.receiptCode() + "' đã tồn tại");
+        String code = dto.receiptCode();
+        if (code == null || code.isBlank()) {
+            code = "GR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        } else if (goodsReceiptRepository.existsByReceiptCode(code)) {
+            throw new BadRequestException("Mã phiếu nhập kho '" + code + "' đã tồn tại");
         }
 
         Supplier supplier = supplierRepository.findById(dto.supplierId())
@@ -42,58 +48,31 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         User createdBy = userRepository.findById(createdByUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng tạo phiếu với ID: " + createdByUserId));
 
+        Product product = productRepository.findById(dto.productId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + dto.productId()));
+
+        BigDecimal totalCost = dto.importPrice().multiply(dto.quantity());
+
+        // Update product stock directly
+        BigDecimal oldStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+        product.setStockQuantity(oldStock.add(dto.quantity()));
+        productRepository.save(product);
+
         GoodsReceipt goodsReceipt = GoodsReceipt.builder()
-                .receiptCode(dto.receiptCode())
+                .receiptCode(code)
                 .supplier(supplier)
                 .createdBy(createdBy)
-                .totalCost(BigDecimal.ZERO)
+                .product(product)
+                .batchNumber(dto.batchNumber())
+                .expDate(dto.expDate())
+                .quantity(dto.quantity())
+                .importPrice(dto.importPrice())
+                .totalCost(totalCost)
+                .note(dto.note())
                 .build();
 
         GoodsReceipt savedReceipt = goodsReceiptRepository.save(goodsReceipt);
-
-        BigDecimal totalCost = BigDecimal.ZERO;
-        List<GoodsReceiptDetail> details = new ArrayList<>();
-
-        for (GoodsReceiptDetailRequestDto detailDto : dto.details()) {
-            Product product = productRepository.findById(detailDto.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm với ID: " + detailDto.productId()));
-
-            BigDecimal lineTotal = detailDto.importPrice().multiply(detailDto.quantity());
-            totalCost = totalCost.add(lineTotal);
-
-            // Update Product stock & cost price
-            BigDecimal oldStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
-            BigDecimal newStock = oldStock.add(detailDto.quantity());
-            product.setStockQuantity(newStock);
-            product.setCostPrice(detailDto.importPrice());
-            productRepository.save(product);
-
-            // Create GoodsReceiptDetail record
-            GoodsReceiptDetail detail = GoodsReceiptDetail.builder()
-                    .receipt(savedReceipt)
-                    .product(product)
-                    .batchNumber(detailDto.batchNumber())
-                    .expDate(detailDto.expDate())
-                    .quantity(detailDto.quantity())
-                    .importPrice(detailDto.importPrice())
-                    .build();
-            details.add(goodsReceiptDetailRepository.save(detail));
-
-            // Log Inventory Transaction
-            InventoryTransaction transaction = InventoryTransaction.builder()
-                    .product(product)
-                    .type("IMPORT")
-                    .quantityDelta(detailDto.quantity())
-                    .balanceAfter(newStock)
-                    .referenceId(savedReceipt.getReceiptCode())
-                    .build();
-            inventoryTransactionRepository.save(transaction);
-        }
-
-        savedReceipt.setTotalCost(totalCost);
-        GoodsReceipt updatedReceipt = goodsReceiptRepository.save(savedReceipt);
-
-        return goodsReceiptMapper.toResponseDto(updatedReceipt, details);
+        return goodsReceiptMapper.toResponseDto(savedReceipt);
     }
 
     @Override
@@ -101,8 +80,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     public GoodsReceiptResponseDto getGoodsReceiptById(Long id) {
         GoodsReceipt receipt = goodsReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiếu nhập với ID: " + id));
-        List<GoodsReceiptDetail> details = goodsReceiptDetailRepository.findByReceiptId(id);
-        return goodsReceiptMapper.toResponseDto(receipt, details);
+        return goodsReceiptMapper.toResponseDto(receipt);
     }
 
     @Override
@@ -110,18 +88,14 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     public GoodsReceiptResponseDto getGoodsReceiptByCode(String receiptCode) {
         GoodsReceipt receipt = goodsReceiptRepository.findByReceiptCode(receiptCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiếu nhập với mã: " + receiptCode));
-        List<GoodsReceiptDetail> details = goodsReceiptDetailRepository.findByReceiptId(receipt.getId());
-        return goodsReceiptMapper.toResponseDto(receipt, details);
+        return goodsReceiptMapper.toResponseDto(receipt);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<GoodsReceiptResponseDto> getAllGoodsReceipts() {
         return goodsReceiptRepository.findAll().stream()
-                .map(receipt -> {
-                    List<GoodsReceiptDetail> details = goodsReceiptDetailRepository.findByReceiptId(receipt.getId());
-                    return goodsReceiptMapper.toResponseDto(receipt, details);
-                })
+                .map(goodsReceiptMapper::toResponseDto)
                 .toList();
     }
 }

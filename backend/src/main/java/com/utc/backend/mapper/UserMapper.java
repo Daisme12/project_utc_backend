@@ -3,18 +3,13 @@ package com.utc.backend.mapper;
 import com.utc.backend.dto.UserCreateDto;
 import com.utc.backend.dto.UserResponseDto;
 import com.utc.backend.dto.UserUpdateDto;
-import com.utc.backend.entity.Role;
 import com.utc.backend.entity.User;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class UserMapper {
 
-    private final RoleMapper roleMapper;
-
-    public User toEntity(UserCreateDto dto, Role role) {
+    public User toEntity(UserCreateDto dto) {
         if (dto == null) {
             return null;
         }
@@ -23,12 +18,14 @@ public class UserMapper {
                 .fullName(dto.fullName())
                 .phone(dto.phone())
                 .email(dto.email())
-                .role(role)
+                .avatarUrl(dto.avatarUrl())
+                .role(dto.role() != null ? dto.role().toUpperCase() : "CUSTOMER")
+                .accumulatedPoints(0)
                 .isActive(true)
                 .build();
     }
 
-    public void updateEntityFromDto(UserUpdateDto dto, User user, Role role) {
+    public void updateEntityFromDto(UserUpdateDto dto, User user) {
         if (dto == null || user == null) {
             return;
         }
@@ -44,9 +41,6 @@ public class UserMapper {
         if (dto.isActive() != null) {
             user.setIsActive(dto.isActive());
         }
-        if (role != null) {
-            user.setRole(role);
-        }
     }
 
     public UserResponseDto toResponseDto(User user) {
@@ -59,8 +53,10 @@ public class UserMapper {
                 user.getFullName(),
                 user.getPhone(),
                 user.getEmail(),
+                user.getAvatarUrl(),
+                user.getRole(),
+                user.getAccumulatedPoints(),
                 user.getIsActive(),
-                roleMapper.toResponseDto(user.getRole()),
                 user.getCreatedAt()
         );
     }

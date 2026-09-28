@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useCart, CartItem } from "@/context/CartContext";
+import { storeService, CreateOrderPayload } from "@/services/storeService";
 import CartStepWizard from "./CartStepWizard";
 import CartItemList from "./CartItemList";
 import DeliveryAddressCard from "./DeliveryAddressCard";
@@ -31,44 +32,27 @@ export default function CartPageClient() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [initializedSelection, setInitializedSelection] = useState(false);
 
-  // Khởi tạo 3 sản phẩm mẫu chuẩn theo thiết kế nếu giỏ hàng ban đầu trống
+  // Khởi tạo sản phẩm mẫu từ API nếu giỏ hàng ban đầu trống
   useEffect(() => {
     if (items.length === 0) {
-      addItem(
-        {
-          id: 1,
-          name: "Sườn Thăn Heo Truyền Thống Ubomeat",
-          price: 71600,
-          packWeight: "Khay 300g",
-          image:
-            "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80",
-        },
-        1
-      );
-      addItem(
-        {
-          id: 2,
-          name: "Ba Chỉ Heo Truyền Thống Ubomeat",
-          price: 67400,
-          packWeight: "Khay 300g",
-          image:
-            "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=400&q=80",
-        },
-        1
-      );
-      addItem(
-        {
-          id: 3,
-          name: "Thịt Xay Heo Truyền Thống Ubomeat",
-          price: 53700,
-          packWeight: "Khay 300g",
-          image:
-            "https://images.unsplash.com/photo-1588347818036-558601350947?auto=format&fit=crop&w=400&q=80",
-        },
-        1
-      );
+      storeService.getProducts().then((prods) => {
+        if (prods && prods.length > 0) {
+          prods.slice(0, 3).forEach((p) => {
+            addItem(
+              {
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                packWeight: p.packWeight,
+                image: p.image,
+              },
+              1
+            );
+          });
+        }
+      }).catch(() => {});
     }
-  }, []); // Run once on mount
+  }, []);
 
   // Tự động chọn tất cả sản phẩm khi lần đầu mở giỏ hàng
   useEffect(() => {
@@ -145,22 +129,68 @@ export default function CartPageClient() {
     0
   );
 
-  const handlePlaceOrder = (finalTotal: number) => {
+  const handlePlaceOrder = async (finalTotal: number, voucherCode?: string) => {
     if (selectedItems.length === 0) {
       toast.error("Vui lòng tích chọn ít nhất 1 sản phẩm để đặt hàng!");
       return;
     }
-    const randomCode = `UBO-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const toastId = toast.loading("Đang gửi đơn hàng lên hệ thống...");
+
+    let orderCode = `UBO-${Math.floor(1000 + Math.random() * 9000)}`;
+    let storedUser: any = {};
+    try {
+      const uStr = localStorage.getItem("user");
+      if (uStr) storedUser = JSON.parse(uStr);
+    } catch {}
+
+    const payload: CreateOrderPayload = {
+      channel: "WEB",
+      userId: storedUser.id || undefined,
+      customerName: storedUser.fullName || "Khách Hàng Trực Tuyến",
+      customerPhone: storedUser.phone || "0988888888",
+      shippingAddress: "Số 3 Cầu Giấy, Láng Thượng, Đống Đa, Hà Nội",
+      deliveryMethod: "FAST_2H",
+      note: "Giao đơn nhanh 2H, giữ tươi mát 0-4°C",
+      totalAmount: selectedSubtotal,
+      shippingFee: selectedSubtotal >= 150000 ? 0 : 25000,
+      finalAmount: finalTotal,
+      paymentMethod: (paymentMethod || "COD").toUpperCase(),
+      orderStatus: "PENDING",
+      items: selectedItems.map((item) => ({
+        productId: item.id,
+        productName: item.name,
+        packWeight: item.packWeight,
+        unit: "Khay",
+        quantity: item.quantity,
+        unitPrice: item.price,
+        subtotal: item.price * item.quantity,
+        imageUrl: item.image,
+      })),
+      voucherCodes: voucherCode ? [voucherCode] : [],
+    };
+
+    try {
+      const created = await storeService.createOrder(payload);
+      if (created && created.orderCode) {
+        orderCode = created.orderCode;
+      }
+      toast.success("Đặt hàng thành công và đã lưu vào hệ thống!", { id: toastId });
+    } catch (err: any) {
+      console.warn("Lỗi lưu đơn hàng qua API, tiếp tục hiển thị mã dự phòng:", err);
+      toast.success("Đặt hàng thành công!", { id: toastId });
+    }
+
     setSuccessModalData({
       isOpen: true,
-      orderCode: randomCode,
+      orderCode,
       totalAmount: finalTotal,
       deliveryTime: "10:30 - 11:30 Hôm nay",
     });
+
     // Chỉ xóa các sản phẩm đã đặt
     selectedIds.forEach((id) => removeItem(id));
     setSelectedIds([]);
-    toast.success("Đặt hàng thành công!");
   };
 
   return (

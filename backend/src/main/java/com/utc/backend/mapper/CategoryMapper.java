@@ -15,7 +15,9 @@ public class CategoryMapper {
         return Category.builder()
                 .name(dto.name())
                 .slug(dto.slug())
+                .icon(dto.icon())
                 .description(dto.description())
+                .displayOrder(dto.displayOrder() != null ? dto.displayOrder() : 0)
                 .isActive(dto.isActive() != null ? dto.isActive() : true)
                 .build();
     }
@@ -30,8 +32,14 @@ public class CategoryMapper {
         if (dto.slug() != null) {
             category.setSlug(dto.slug());
         }
+        if (dto.icon() != null) {
+            category.setIcon(dto.icon());
+        }
         if (dto.description() != null) {
             category.setDescription(dto.description());
+        }
+        if (dto.displayOrder() != null) {
+            category.setDisplayOrder(dto.displayOrder());
         }
         if (dto.isActive() != null) {
             category.setIsActive(dto.isActive());
@@ -46,7 +54,9 @@ public class CategoryMapper {
                 category.getId(),
                 category.getName(),
                 category.getSlug(),
+                category.getIcon(),
                 category.getDescription(),
+                category.getDisplayOrder(),
                 category.getIsActive()
         );
     }

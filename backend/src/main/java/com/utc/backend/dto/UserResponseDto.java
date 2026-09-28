@@ -8,7 +8,9 @@ public record UserResponseDto(
     String fullName,
     String phone,
     String email,
+    String avatarUrl,
+    String role,
+    Integer accumulatedPoints,
     Boolean isActive,
-    RoleResponseDto role,
     LocalDateTime createdAt
 ) {}

@@ -10,7 +10,9 @@ public interface ProductService {
     ProductResponseDto updateProduct(Long id, ProductRequestDto dto);
     ProductResponseDto getProductById(Long id);
     ProductResponseDto getProductBySku(String sku);
+    ProductResponseDto getProductBySlug(String slug);
     List<ProductResponseDto> getProductsByCategory(Long categoryId);
+    List<ProductResponseDto> getProductsByCategorySlug(String categorySlug);
     List<ProductResponseDto> searchProducts(String keyword);
     List<ProductResponseDto> getAllActiveProducts();
     void deleteProduct(Long id);

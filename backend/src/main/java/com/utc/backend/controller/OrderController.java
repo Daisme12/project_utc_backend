@@ -40,14 +40,8 @@ public class OrderController {
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<List<OrderResponseDto>>> getOrdersByUser(@PathVariable Long userId) {
-        List<OrderResponseDto> orders = orderService.getOrdersByUser(userId);
+        List<OrderResponseDto> orders = orderService.getOrdersByUserId(userId);
         return ResponseEntity.ok(ApiResponse.success(orders, "Lấy danh sách đơn hàng của người dùng thành công"));
-    }
-
-    @GetMapping("/status/{status}")
-    public ResponseEntity<ApiResponse<List<OrderResponseDto>>> getOrdersByStatus(@PathVariable String status) {
-        List<OrderResponseDto> orders = orderService.getOrdersByStatus(status);
-        return ResponseEntity.ok(ApiResponse.success(orders, "Lấy danh sách đơn hàng theo trạng thái thành công"));
     }
 
     @GetMapping
@@ -62,5 +56,11 @@ public class OrderController {
             @RequestParam("status") String status) {
         OrderResponseDto order = orderService.updateOrderStatus(id, status);
         return ResponseEntity.ok(ApiResponse.success(order, "Cập nhật trạng thái đơn hàng thành công"));
+    }
+
+    @PostMapping("/{id}/print")
+    public ResponseEntity<ApiResponse<Void>> markAsPrinted(@PathVariable Long id) {
+        orderService.markAsPrinted(id);
+        return ResponseEntity.ok(ApiResponse.success(null, "In hóa đơn thành công"));
     }
 }

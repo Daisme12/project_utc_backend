@@ -2,12 +2,10 @@ package com.utc.backend.service.impl;
 
 import com.utc.backend.config.JwtTokenProvider;
 import com.utc.backend.dto.*;
-import com.utc.backend.entity.PasswordResetToken;
 import com.utc.backend.entity.User;
 import com.utc.backend.exception.BadRequestException;
 import com.utc.backend.exception.ResourceNotFoundException;
 import com.utc.backend.mapper.UserMapper;
-import com.utc.backend.repository.PasswordResetTokenRepository;
 import com.utc.backend.repository.UserRepository;
 import com.utc.backend.service.AuthService;
 import com.utc.backend.service.EmailService;
@@ -25,7 +23,6 @@ import java.util.UUID;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final UserService userService;
     private final EmailService emailService;
     private final UserMapper userMapper;
@@ -79,8 +76,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(String token) {
-        // Token invalidation logic: Handled on client side by removing Bearer token, 
-        // or optionally tracked in a Redis / DB JWT Blacklist.
+        // Handled on client side by clearing token
     }
 
     @Override
@@ -103,37 +99,34 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản liên kết với email: " + email));
 
-        passwordResetTokenRepository.deleteByUser(user);
-
         String resetToken = UUID.randomUUID().toString();
-        PasswordResetToken resetTokenEntity = PasswordResetToken.builder()
-                .token(resetToken)
-                .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(15)) // Valid for 15 minutes
-                .build();
+        user.setResetToken(resetToken);
+        user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(15)); // Hiệu lực 15 phút
+        userRepository.save(user);
 
-        passwordResetTokenRepository.save(resetTokenEntity);
         emailService.sendResetPasswordEmail(user.getEmail(), resetToken);
     }
 
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequestDto dto) {
-        PasswordResetToken resetTokenEntity = passwordResetTokenRepository.findByToken(dto.resetToken())
+        User user = userRepository.findByResetToken(dto.resetToken())
                 .orElseThrow(() -> new BadRequestException("Mã xác thực reset token không hợp lệ"));
 
-        if (resetTokenEntity.isExpired()) {
-            passwordResetTokenRepository.delete(resetTokenEntity);
+        if (user.getResetTokenExpiry() == null || user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            user.setResetToken(null);
+            user.setResetTokenExpiry(null);
+            userRepository.save(user);
             throw new BadRequestException("Mã xác thực reset token đã hết hạn (chỉ có hiệu lực 15 phút)");
         }
 
-        User user = resetTokenEntity.getUser();
         if (!user.getEmail().equalsIgnoreCase(dto.email())) {
             throw new BadRequestException("Email không khớp với mã reset token");
         }
 
         user.setPasswordHash(passwordEncoder.encode(dto.newPassword()));
+        user.setResetToken(null);
+        user.setResetTokenExpiry(null);
         userRepository.save(user);
-        passwordResetTokenRepository.delete(resetTokenEntity);
     }
 }

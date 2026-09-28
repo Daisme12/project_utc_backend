@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Product } from "@/data/products";
+import { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 
 export default function ProductListingCard({ product }: { product: Product }) {

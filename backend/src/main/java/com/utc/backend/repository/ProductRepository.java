@@ -14,10 +14,17 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = {"category"})
     Optional<Product> findBySku(String sku);
 
+    @EntityGraph(attributePaths = {"category"})
+    Optional<Product> findBySlug(String slug);
+
     boolean existsBySku(String sku);
+    boolean existsBySlug(String slug);
 
     @EntityGraph(attributePaths = {"category"})
     List<Product> findByCategoryId(Long categoryId);
+
+    @EntityGraph(attributePaths = {"category"})
+    List<Product> findByCategory_Slug(String categorySlug);
 
     @EntityGraph(attributePaths = {"category"})
     List<Product> findByIsActiveTrue();

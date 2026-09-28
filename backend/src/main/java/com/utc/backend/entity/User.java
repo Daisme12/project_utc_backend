@@ -18,11 +18,6 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 2. Khóa ngoại role_id (bigint NN) trỏ đến bảng Role
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
-
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
@@ -32,28 +27,52 @@ public class User {
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
-    // 6. phone (varchar(15), Unique)
-    @Column(name = "phone", unique = true, length = 15)
+    @Column(name = "phone", unique = true, length = 20)
     private String phone;
 
-    // 7. email (varchar(100), Unique)
     @Column(name = "email", unique = true, length = 100)
     private String email;
 
-    // 8. is_active (boolean)
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    @Column(name = "role", nullable = false, length = 20)
+    private String role; // ADMIN, CASHIER, CUSTOMER
+
+    @Column(name = "accumulated_points")
+    private Integer accumulatedPoints;
+
+    @Column(name = "reset_token", length = 100)
+    private String resetToken;
+
+    @Column(name = "reset_token_expiry")
+    private LocalDateTime resetTokenExpiry;
+
     @Column(name = "is_active")
     private Boolean isActive;
 
-    // 9. created_at (timestamp)
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Tự động gán thời gian tạo khi thêm mới record
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         if (this.isActive == null) {
-            this.isActive = true; // Mặc định kích hoạt tài khoản
+            this.isActive = true;
         }
+        if (this.role == null) {
+            this.role = "CUSTOMER";
+        }
+        if (this.accumulatedPoints == null) {
+            this.accumulatedPoints = 0;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

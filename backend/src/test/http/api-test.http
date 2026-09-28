@@ -1,677 +1,557 @@
-### ─────────────────────────────────────────
-### BASE URL
-### ─────────────────────────────────────────
+### ==============================================================================
+### PROJECT UTC - UBOFOOD API TEST COLLECTION (REST Client / IntelliJ HTTP Client)
+### Phiên bản: Chuẩn hóa 100% theo Spring Boot 3 DTOs & Ubofood Store
+### ==============================================================================
+
 @baseUrl = http://localhost:8080/api/v1
 @contentType = application/json
 
+### ==============================================================================
+### 00. HEALTH CHECK
+### ==============================================================================
+
+### Check Server Health Status
+GET {{baseUrl}}/health
+Accept: {{contentType}}
+
+
+### ==============================================================================
+### 01. AUTHENTICATION & AUTHORIZATION (/v1/auth)
+### ==============================================================================
+
+### 1.1 Đăng nhập tài khoản Quản trị viên (ADMIN)
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "username": "admin",
+  "password": "password123"
+}
 
 ### ─────────────────────────────────────────
-### AUTH
+@adminToken = {{loginAdmin.response.body.data.accessToken}}
+@adminId = {{loginAdmin.response.body.data.user.id}}
 ### ─────────────────────────────────────────
 
-### 1. Register (sends welcome email)
-# @name register
+### 1.2 Đăng nhập tài khoản Thu ngân (CASHIER)
+# @name loginCashier
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "username": "thungan01",
+  "password": "password123"
+}
+
+### ─────────────────────────────────────────
+@cashierToken = {{loginCashier.response.body.data.accessToken}}
+### ─────────────────────────────────────────
+
+### 1.3 Đăng nhập tài khoản Khách hàng (CUSTOMER)
+# @name loginCustomer
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "username": "khachhang01",
+  "password": "password123"
+}
+
+### ─────────────────────────────────────────
+@customerToken = {{loginCustomer.response.body.data.accessToken}}
+@customerId = {{loginCustomer.response.body.data.user.id}}
+### ─────────────────────────────────────────
+
+### 1.4 Đăng ký tài khoản Khách hàng mới
+# @name registerUser
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
 {
-  "username": "testuser",
-  "email": "test@example.com",
+  "username": "khachhangmoi",
   "password": "password123",
-  "displayName": "Test User",
-  "birthDate": "1995-06-15"
+  "fullName": "Trần Văn Khách Mới",
+  "phone": "0934567899",
+  "email": "khachmoi@example.com",
+  "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+  "role": "CUSTOMER"
 }
 
-### ─────────────────────────────────────────
-@authToken = {{register.response.body.accessToken}}
-@userId = {{register.response.body.user.id}}
-### ─────────────────────────────────────────
-
-### 2. Login
-# @name login
-POST {{baseUrl}}/auth/login
+### 1.5 Làm mới JWT Token (Refresh Token)
+POST {{baseUrl}}/auth/refresh-token
 Content-Type: {{contentType}}
 
 {
-  "email": "test@example.com",
-  "password": "password123"
+  "refreshToken": "{{customerToken}}"
 }
 
-### ─────────────────────────────────────────
-@authToken = {{login.response.body.accessToken}}
-@userId = {{login.response.body.user.id}}
-### ─────────────────────────────────────────
-
-### 3. Forgot password (sends reset email)
-POST {{baseUrl}}/auth/forgot-password
+### 1.6 Đổi mật khẩu
+POST {{baseUrl}}/auth/change-password
 Content-Type: {{contentType}}
 
 {
-  "email": "test@example.com"
+  "username": "khachhangmoi",
+  "oldPassword": "password123",
+  "newPassword": "newPassword456!"
 }
 
-### 4. Reset password (use token from email or console log)
+### 1.7 Yêu cầu cấp lại mật khẩu (Gửi email kèm Reset Token)
+POST {{baseUrl}}/auth/forgot-password?email=customer01@gmail.com
+
+### 1.8 Đặt lại mật khẩu mới bằng Reset Token
 POST {{baseUrl}}/auth/reset-password
 Content-Type: {{contentType}}
 
 {
-  "token": "paste-token-from-email-here",
-  "newPassword": "newpassword123"
+  "email": "customer01@gmail.com",
+  "resetToken": "PASTE_TOKEN_FROM_EMAIL_HERE",
+  "newPassword": "password123"
 }
 
-### ─────────────────────────────────────────
-### ERROR CASES - AUTH
-### ─────────────────────────────────────────
-
-### ERR - Duplicate email
-POST {{baseUrl}}/auth/register
-Content-Type: {{contentType}}
-
-{
-  "username": "anotheruser",
-  "email": "test@example.com",
-  "password": "password123"
-}
-
-### ERR - Wrong password
-POST {{baseUrl}}/auth/login
-Content-Type: {{contentType}}
-
-{
-  "email": "test@example.com",
-  "password": "wrongpassword"
-}
-
-### ERR - Invalid reset token
-POST {{baseUrl}}/auth/reset-password
-Content-Type: {{contentType}}
-
-{
-  "token": "invalid-token",
-  "newPassword": "newpassword123"
-}
+### 1.9 Đăng xuất (Client xóa token)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{customerToken}}
 
 
-### ─────────────────────────────────────────
-### USER
-### ─────────────────────────────────────────
+### ==============================================================================
+### 02. USER MANAGEMENT (/v1/users)
+### ==============================================================================
 
-### 5. Get my profile (self)
-GET {{baseUrl}}/users/me
-Authorization: Bearer {{authToken}}
-
-### 6. Get user by id (public)
-GET {{baseUrl}}/users/{{userId}}
-
-### 7. Get all users
+### 2.1 Lấy danh sách tất cả người dùng
 GET {{baseUrl}}/users
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
 
-### 8. Search users by username or display name
-GET {{baseUrl}}/users?query=test
+### 2.2 Lấy chi tiết người dùng theo ID
+GET {{baseUrl}}/users/1
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
 
-### 9. Update my profile
-PATCH {{baseUrl}}/users/me
-Authorization: Bearer {{authToken}}
+### 2.3 Lấy thông tin người dùng theo Username
+GET {{baseUrl}}/users/username/khachhang01
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+### 2.4 Tạo người dùng mới từ trang quản trị
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "username": "nhanvienkho01",
+  "password": "password123",
+  "fullName": "Phạm Văn Kho",
+  "phone": "0911223399",
+  "email": "kho01@utc.edu.vn",
+  "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80",
+  "role": "CASHIER"
+}
+
+### 2.5 Cập nhật thông tin người dùng
+PUT {{baseUrl}}/users/3
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "fullName": "Lê Văn Mua Hàng (VIP)",
+  "phone": "0966666666",
+  "email": "customer01@gmail.com",
+  "isActive": true,
+  "role": "CUSTOMER"
+}
+
+### 2.6 Khóa/Xóa tài khoản người dùng
+DELETE {{baseUrl}}/users/4
+Authorization: Bearer {{adminToken}}
+
+
+### ==============================================================================
+### 03. CATEGORIES MANAGEMENT (/v1/categories)
+### ==============================================================================
+
+### 3.1 Lấy danh sách tất cả danh mục đang hoạt động (Hiển thị trang chủ)
+GET {{baseUrl}}/categories
+Accept: {{contentType}}
+
+### 3.2 Lấy chi tiết danh mục theo ID
+GET {{baseUrl}}/categories/1
+Accept: {{contentType}}
+
+### 3.3 Lấy danh mục theo Slug (Khớp URL Web)
+GET {{baseUrl}}/categories/slug/thit-heo-tuoi-mat
+Accept: {{contentType}}
+
+### 3.4 Tạo danh mục mới
+POST {{baseUrl}}/categories
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Trái Cây Nhập Khẩu",
+  "slug": "trai-cay-nhap-khau",
+  "icon": "🍎",
+  "description": "Trái cây tươi ngon nhập khẩu chính ngạch chuẩn VietGAP & GlobalGAP",
+  "displayOrder": 8,
+  "isActive": true
+}
+
+### 3.5 Cập nhật thông tin danh mục
+PUT {{baseUrl}}/categories/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Săn Sale Giờ Vàng",
+  "slug": "san-sale",
+  "icon": "🔥",
+  "description": "Ưu đãi sốc giờ vàng mỗi ngày giảm tới 50% - Cập nhật liên tục",
+  "displayOrder": 1,
+  "isActive": true
+}
+
+### 3.6 Vô hiệu hóa / Xóa danh mục
+DELETE {{baseUrl}}/categories/7
+Authorization: Bearer {{adminToken}}
+
+
+### ==============================================================================
+### 04. PRODUCTS MANAGEMENT (/v1/products)
+### ==============================================================================
+
+### 4.1 Lấy danh sách tất cả sản phẩm
+GET {{baseUrl}}/products
+Accept: {{contentType}}
+
+### 4.2 Tìm kiếm sản phẩm theo từ khóa
+GET {{baseUrl}}/products/search?keyword=bò
+Accept: {{contentType}}
+
+### 4.3 Lấy thông tin sản phẩm theo ID
+GET {{baseUrl}}/products/2
+Accept: {{contentType}}
+
+### 4.4 Lấy thông tin sản phẩm theo mã vạch SKU
+GET {{baseUrl}}/products/sku/BOUC-FS500
+Accept: {{contentType}}
+
+### 4.5 Lấy sản phẩm theo Slug (Khớp chi tiết sản phẩm Frontend)
+GET {{baseUrl}}/products/slug/ba-chi-bo-uc-flash-sale
+Accept: {{contentType}}
+
+### 4.6 Lấy danh sách sản phẩm theo ID Danh mục (Ví dụ: ID 2 = Thịt heo tươi mát)
+GET {{baseUrl}}/products/category/2
+Accept: {{contentType}}
+
+### 4.7 Lấy danh sách sản phẩm theo Slug Danh mục (Khớp routing Frontend)
+GET {{baseUrl}}/products/category-slug/thit-heo-tuoi-mat
+Accept: {{contentType}}
+
+### 4.8 Thêm mới sản phẩm vào hệ thống
+POST {{baseUrl}}/products
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "categoryId": 3,
+  "sku": "BO-LALOT-300",
+  "slug": "bo-cuon-la-lot-so-che",
+  "name": "Bò Cuộn Lá Lốt Sơ Chế Sẵn Chuẩn Mát",
+  "brand": "UBOFOOD TIỆN LỢI",
+  "origin": "Nhập khẩu Úc",
+  "standard": "euchill",
+  "unit": "Khay",
+  "packWeight": "Khay 300g (12 cuốn)",
+  "isWeighing": false,
+  "price": 75000,
+  "originalPrice": 85000,
+  "stockQuantity": 40,
+  "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80"
+}
+
+### 4.9 Cập nhật thông tin sản phẩm
+PUT {{baseUrl}}/products/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "categoryId": 1,
+  "sku": "COMBO-25M",
+  "slug": "combo-gia-dinh-so-che",
+  "name": "Combo Gia Đình Sơ Chế Mâm Cơm 25 Phút",
+  "brand": "UBOFOOD TIỆN LỢI",
+  "origin": "Ba Vì, Hà Nội",
+  "standard": "euchill",
+  "unit": "Khay",
+  "packWeight": "Khay lớn 1kg",
+  "isWeighing": false,
+  "price": 182000,
+  "originalPrice": 215000,
+  "stockQuantity": 50,
+  "imageUrl": "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80"
+}
+
+### 4.10 Xóa / Ngừng kinh doanh sản phẩm
+DELETE {{baseUrl}}/products/16
+Authorization: Bearer {{adminToken}}
+
+
+### ==============================================================================
+### 05. VOUCHERS & PROMOTIONS (/v1/vouchers)
+### ==============================================================================
+
+### 5.1 Lấy danh sách tất cả voucher đang hoạt động
+GET {{baseUrl}}/vouchers
+Accept: {{contentType}}
+
+### 5.2 Kiểm tra & áp dụng mã voucher GIAM50K (Khớp giỏ hàng)
+GET {{baseUrl}}/vouchers/GIAM50K
+Accept: {{contentType}}
+
+### 5.3 Kiểm tra & áp dụng mã voucher FREESHIP2H
+GET {{baseUrl}}/vouchers/FREESHIP2H
+Accept: {{contentType}}
+
+### 5.4 Kiểm tra mã voucher UBOMEAT
+GET {{baseUrl}}/vouchers/UBOMEAT
+Accept: {{contentType}}
+
+### 5.5 Tạo mã khuyến mại mới
+POST {{baseUrl}}/vouchers
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "code": "UBOVIP100",
+  "badge": "VIP -100K",
+  "title": "Giảm 100.000đ cho đơn hàng thực phẩm từ 500.000đ",
+  "discountType": "FIXED_AMOUNT",
+  "discountValue": 100000,
+  "minOrderAmount": 500000,
+  "startDate": "2026-09-01T00:00:00",
+  "endDate": "2026-12-31T23:59:59",
+  "isActive": true
+}
+
+### 5.6 Vô hiệu hóa voucher
+DELETE {{baseUrl}}/vouchers/4
+Authorization: Bearer {{adminToken}}
+
+
+### ==============================================================================
+### 06. ORDERS & CHECKOUT (/v1/orders)
+### ==============================================================================
+
+### 6.1 Tạo đơn hàng Online (Kèm giỏ hàng & áp dụng Voucher GIAM50K + FREESHIP2H)
+POST {{baseUrl}}/orders
 Content-Type: {{contentType}}
 
 {
-  "displayName": "Updated Name",
-  "bio": "My new bio",
-  "birthDate": "1995-06-15"
+  "orderCode": "UBO-TEST-ONLINE-99",
+  "channel": "WEB",
+  "userId": 3,
+  "customerName": "Lê Văn Mua Hàng",
+  "customerPhone": "0966666666",
+  "shippingAddress": "Phòng 1205 Tòa Nhà Landmark 72, Cầu Giấy, Hà Nội",
+  "deliveryMethod": "FAST_2H",
+  "note": "Giao hỏa tốc trước 11h trưa để kịp nấu cơm",
+  "totalAmount": 224000,
+  "shippingFee": 25000,
+  "finalAmount": 174000,
+  "paymentMethod": "COD",
+  "orderStatus": "PENDING",
+  "isPrinted": false,
+  "items": [
+    {
+      "productId": 2,
+      "productName": "Ba Chỉ Bò Úc Cuộn Nhúng Lẩu Chuẩn Mát",
+      "packWeight": "Khay 500g",
+      "unit": "Khay",
+      "quantity": 1,
+      "unitPrice": 89000,
+      "imageUrl": "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      "productId": 13,
+      "productName": "Cá Hồi Na Uy Tươi Fillet",
+      "packWeight": "Khay 250g",
+      "unit": "Khay",
+      "quantity": 1,
+      "unitPrice": 135000,
+      "imageUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=80"
+    }
+  ],
+  "voucherCodes": [
+    "GIAM50K",
+    "FREESHIP2H"
+  ]
 }
 
-### 10. Upload avatar (multipart — run in terminal)
-# curl.exe -X POST http://localhost:8080/api/v1/users/me/avatar
-#   -H "Authorization: Bearer <token>"
-#   -F "file=@C:\path\to\avatar.jpg;type=image/jpeg"
-
-### 11. Update role and account type (admin only)
-PATCH {{baseUrl}}/users/{{userId}}/role
-Authorization: Bearer {{authToken}}
+### 6.2 Tạo đơn hàng bán tại quầy POS (Thu ngân thực hiện)
+POST {{baseUrl}}/orders
 Content-Type: {{contentType}}
+Authorization: Bearer {{cashierToken}}
 
 {
-  "role": "ARTIST",
-  "accountType": "PRO"
+  "orderCode": "UBO-POS-1002",
+  "channel": "POS",
+  "userId": 3,
+  "cashierId": 2,
+  "customerName": "Lê Văn Mua Hàng",
+  "customerPhone": "0966666666",
+  "shippingAddress": "Mua trực tiếp tại quầy Ubofood",
+  "deliveryMethod": "TAKE_AWAY",
+  "note": "Khách thanh toán quét mã VNPAY tại quầy",
+  "totalAmount": 113600,
+  "shippingFee": 0,
+  "finalAmount": 113600,
+  "paymentMethod": "VNPAY",
+  "orderStatus": "COMPLETED",
+  "isPrinted": true,
+  "items": [
+    {
+      "productId": 3,
+      "productName": "Sườn Thăn Heo Truyền Thống",
+      "packWeight": "Khay 300g",
+      "unit": "Khay",
+      "quantity": 1,
+      "unitPrice": 71600,
+      "imageUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      "productId": 10,
+      "productName": "Trứng Gà Ta Thuần Việt",
+      "packWeight": "Hộp 10 quả",
+      "unit": "Hộp",
+      "quantity": 1,
+      "unitPrice": 42000,
+      "imageUrl": "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80"
+    }
+  ],
+  "voucherCodes": []
 }
 
-### ─────────────────────────────────────────
-### ERROR CASES - USER
-### ─────────────────────────────────────────
+### 6.3 Lấy danh sách tất cả đơn hàng
+GET {{baseUrl}}/orders
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
 
-### ERR - Update role without admin token
-PATCH {{baseUrl}}/users/{{userId}}/role
+### 6.4 Lấy chi tiết đơn hàng theo ID
+GET {{baseUrl}}/orders/1
+Accept: {{contentType}}
+
+### 6.5 Lấy thông tin đơn hàng theo Mã Đơn Hàng (Order Code)
+GET {{baseUrl}}/orders/code/UBO-WEB-20260928
+Accept: {{contentType}}
+
+### 6.6 Lấy lịch sử đơn hàng của người dùng (Customer ID: 3)
+GET {{baseUrl}}/orders/user/3
+Accept: {{contentType}}
+Authorization: Bearer {{customerToken}}
+
+### 6.7 Cập nhật trạng thái đơn hàng (PROCESSING -> DELIVERING -> COMPLETED)
+PUT {{baseUrl}}/orders/2/status?status=DELIVERING
+Authorization: Bearer {{adminToken}}
+
+### 6.8 Đánh dấu in hóa đơn (Mark as printed)
+POST {{baseUrl}}/orders/1/print
+Authorization: Bearer {{cashierToken}}
+
+
+### ==============================================================================
+### 07. SUPPLIERS MANAGEMENT (/v1/suppliers)
+### ==============================================================================
+
+### 7.1 Lấy danh sách tất cả nhà cung cấp đang hợp tác
+GET {{baseUrl}}/suppliers
+Accept: {{contentType}}
+
+### 7.2 Lấy chi tiết nhà cung cấp theo ID
+GET {{baseUrl}}/suppliers/1
+Accept: {{contentType}}
+
+### 7.3 Tạo nhà cung cấp nông sản mới
+POST {{baseUrl}}/suppliers
 Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
 
 {
-  "role": "ADMIN"
+  "name": "Nông Trại Hữu Cơ Đà Lạt GAP Farm",
+  "phone": "02633556677",
+  "address": "Phường 7, TP. Đà Lạt, Tỉnh Lâm Đồng",
+  "isActive": true
 }
 
-
-### ─────────────────────────────────────────
-### GENRE
-### ─────────────────────────────────────────
-
-### 12. Create genre (admin only)
-# @name createGenre
-POST {{baseUrl}}/genres
-Authorization: Bearer {{authToken}}
+### 7.4 Cập nhật thông tin nhà cung cấp
+PUT {{baseUrl}}/suppliers/1
 Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
 
 {
-  "name": "Pop",
-  "slug": "pop"
+  "name": "Tập Đoàn Nông Nghiệp Ba Vì Clean Farm (Chi nhánh 1)",
+  "phone": "0243888999",
+  "address": "Huyện Ba Vì, TP. Hà Nội",
+  "isActive": true
 }
 
-### ─────────────────────────────────────────
-@genreId = {{createGenre.response.body.id}}
-### ─────────────────────────────────────────
-
-### 13. Get all genres
-GET {{baseUrl}}/genres
-
-### 14. Get genre by id
-GET {{baseUrl}}/genres/{{genreId}}
-
-### 15. Delete genre (admin only)
-DELETE {{baseUrl}}/genres/{{genreId}}
-Authorization: Bearer {{authToken}}
+### 7.5 Vô hiệu hóa nhà cung cấp
+DELETE {{baseUrl}}/suppliers/4
+Authorization: Bearer {{adminToken}}
 
 
-### ─────────────────────────────────────────
-### ALBUM
-### ─────────────────────────────────────────
+### ==============================================================================
+### 08. GOODS RECEIPTS - NHẬP KHO THEO LÔ KIỂM ĐỊNH (/v1/goods-receipts)
+### ==============================================================================
 
-### 16. Create album (artist/admin only)
-# @name createAlbum
-POST {{baseUrl}}/albums
-Authorization: Bearer {{authToken}}
+### 8.1 Lấy danh sách tất cả phiếu nhập kho
+GET {{baseUrl}}/goods-receipts
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+### 8.2 Lấy chi tiết phiếu nhập kho theo ID
+GET {{baseUrl}}/goods-receipts/1
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+### 8.3 Lấy thông tin phiếu nhập kho theo mã phiếu
+GET {{baseUrl}}/goods-receipts/code/GR-20260928-01
+Accept: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+### 8.4 Tạo phiếu nhập kho theo lô thịt mát (Tự động cộng tồn kho sản phẩm)
+POST {{baseUrl}}/goods-receipts?createdByUserId=1
 Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
 
 {
-  "artistId": {{userId}},
-  "title": "My First Album",
-  "coverUrl": "https://example.com/cover.jpg",
-  "releaseDate": "2024-01-01"
-}
-
-### ─────────────────────────────────────────
-@albumId = {{createAlbum.response.body.id}}
-### ─────────────────────────────────────────
-
-### 17. Get all albums
-GET {{baseUrl}}/albums
-
-### 18. Get album by id
-GET {{baseUrl}}/albums/{{albumId}}
-
-### 19. Get albums by artist
-GET {{baseUrl}}/albums/artist/{{userId}}
-
-### 20. Search albums by title
-GET {{baseUrl}}/albums/search?title=first
-
-### 21. Upload album cover (owner/artist only — run in terminal)
-# curl.exe -X POST http://localhost:8080/api/v1/albums/{{albumId}}/cover
-#   -H "Authorization: Bearer <token>"
-#   -F "file=@C:\path\to\cover.jpg;type=image/jpeg"
-
-### 22. Delete album (owner/admin only)
-DELETE {{baseUrl}}/albums/{{albumId}}
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - ALBUM
-### ─────────────────────────────────────────
-
-### ERR - Get non-existent album
-GET {{baseUrl}}/albums/99999
-
-### ERR - Create album as non-artist
-POST {{baseUrl}}/albums
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "artistId": {{userId}},
-  "title": "Unauthorized Album"
-}
-
-### ERR - Upload cover for another artist's album
-# curl.exe -X POST http://localhost:8080/api/v1/albums/1/cover
-#   -H "Authorization: Bearer <other-artist-token>"
-#   -F "file=@C:\path\to\cover.jpg;type=image/jpeg"
-
-
-### ─────────────────────────────────────────
-### SONG
-### ─────────────────────────────────────────
-
-### 23. Create song (artist/admin only — multipart, run in terminal)
-# curl.exe -X POST http://localhost:8080/api/v1/songs
-#   -H "Authorization: Bearer <token>"
-#   -F "data={\"artistId\":1,\"albumId\":1,\"title\":\"My First Song\",\"durationSeconds\":210,\"coverUrl\":\"https://example.com/cover.jpg\",\"requiredAccountType\":\"NORMAL\"};type=application/json"
-#   -F "file=@C:\path\to\song.mp3;type=audio/mpeg"
-
-### ─────────────────────────────────────────
-@songId = 1
-### ─────────────────────────────────────────
-
-### 24. Get song by id
-GET {{baseUrl}}/songs/{{songId}}
-
-### 25. Get songs by album
-GET {{baseUrl}}/songs/album/{{albumId}}
-
-### 26. Get songs by artist
-GET {{baseUrl}}/songs/artist/{{userId}}
-
-### 27. Get songs by genre
-### Filter songs by any of these genres
-GET {{baseUrl}}/songs/filter?genreIds=1,2
-
-### Filter songs that have ALL of these genres
-GET {{baseUrl}}/songs/filter?genreIds=1,2&matchAll=true
-
-### Filter with pagination
-GET {{baseUrl}}/songs/filter?genreIds=1,2&page=0&size=10&sort=playCount,desc
-
-### 28. Get all live songs (sorted by play count)
-GET {{baseUrl}}/songs
-
-### 29. Search songs by title
-GET {{baseUrl}}/songs/search?title=first
-
-### 30. Upload song cover (owner/artist only — run in terminal)
-# curl.exe -X POST http://localhost:8080/api/v1/songs/{{songId}}/cover
-#   -H "Authorization: Bearer <token>"
-#   -F "file=@C:\path\to\cover.jpg;type=image/jpeg"
-
-### 31. Publish song (owner/admin only)
-PATCH {{baseUrl}}/songs/{{songId}}/publish
-Authorization: Bearer {{authToken}}
-
-### 32. Play song (checks account type, records earnings)
-PATCH {{baseUrl}}/songs/{{songId}}/playback
-Authorization: Bearer {{authToken}}
-
-### 33. Soft delete song (owner/admin only)
-DELETE {{baseUrl}}/songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### Tag genre to song (owner/admin only)
-POST {{baseUrl}}/songs/{{songId}}/genres/{{genreId}}
-Authorization: Bearer {{authToken}}
-
-### Remove genre from song (owner/admin only)
-DELETE {{baseUrl}}/songs/{{songId}}/genres/{{genreId}}
-Authorization: Bearer {{authToken}}
-
-### ERR - Tag genre on another artist's song
-POST {{baseUrl}}/songs/{{songId}}/genres/{{genreId}}
-Authorization: Bearer {{authToken}}
-
-### ERR - Tag same genre twice
-POST {{baseUrl}}/songs/{{songId}}/genres/{{genreId}}
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - SONG
-### ─────────────────────────────────────────
-
-### ERR - Get non-existent song
-GET {{baseUrl}}/songs/99999
-
-### ERR - Play premium song without premium account
-PATCH {{baseUrl}}/songs/{{songId}}/playback
-Authorization: Bearer {{authToken}}
-
-### ERR - Publish another artist's song
-PATCH {{baseUrl}}/songs/{{songId}}/publish
-Authorization: Bearer {{authToken}}
-
-### ERR - Upload cover for another artist's song
-# curl.exe -X POST http://localhost:8080/api/v1/songs/1/cover
-#   -H "Authorization: Bearer <other-artist-token>"
-#   -F "file=@C:\path\to\cover.jpg;type=image/jpeg"
-
-### ERR - Create song with album that doesn't belong to artist
-# curl.exe -X POST http://localhost:8080/api/v1/songs
-#   -H "Authorization: Bearer <token>"
-#   -F "data={\"artistId\":1,\"albumId\":99,\"title\":\"Bad Song\"};type=application/json"
-#   -F "file=@C:\path\to\song.mp3;type=audio/mpeg"
-
-
-### ─────────────────────────────────────────
-### LIKED SONGS
-### ─────────────────────────────────────────
-
-### 34. Like a song
-POST {{baseUrl}}/liked-songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### 35. Check if song is liked
-GET {{baseUrl}}/liked-songs/{{songId}}/status
-Authorization: Bearer {{authToken}}
-
-### 36. Get my liked songs
-GET {{baseUrl}}/liked-songs
-Authorization: Bearer {{authToken}}
-
-### 37. Unlike a song
-DELETE {{baseUrl}}/liked-songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - LIKED SONGS
-### ─────────────────────────────────────────
-
-### ERR - Like same song twice
-POST {{baseUrl}}/liked-songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-
-### ─────────────────────────────────────────
-### PLAYLISTS
-### ─────────────────────────────────────────
-
-### 38. Create playlist
-# @name createPlaylist
-POST {{baseUrl}}/playlists
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "title": "My Playlist",
-  "description": "My favorite songs",
-  "isPublic": true
-}
-
-### ─────────────────────────────────────────
-@playlistId = {{createPlaylist.response.body.id}}
-### ─────────────────────────────────────────
-
-### 39. Get all public playlists
-GET {{baseUrl}}/playlists
-
-### 40. Get my playlists
-GET {{baseUrl}}/playlists/me
-Authorization: Bearer {{authToken}}
-
-### 41. Get playlist by id
-GET {{baseUrl}}/playlists/{{playlistId}}
-
-### 42. Get songs in playlist
-GET {{baseUrl}}/playlists/{{playlistId}}/songs
-
-### 43. Update playlist (owner/admin only)
-PATCH {{baseUrl}}/playlists/{{playlistId}}
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "title": "Updated Playlist",
-  "isPublic": false
-}
-
-### 44. Add song to playlist (owner/admin only)
-POST {{baseUrl}}/playlists/{{playlistId}}/songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### 45. Remove song from playlist (owner/admin only)
-DELETE {{baseUrl}}/playlists/{{playlistId}}/songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### 46. Follow playlist
-POST {{baseUrl}}/playlists/{{playlistId}}/follow
-Authorization: Bearer {{authToken}}
-
-### 47. Unfollow playlist
-DELETE {{baseUrl}}/playlists/{{playlistId}}/follow
-Authorization: Bearer {{authToken}}
-
-### 48. Delete playlist (owner/admin only)
-DELETE {{baseUrl}}/playlists/{{playlistId}}
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - PLAYLIST
-### ─────────────────────────────────────────
-
-### ERR - Add same song twice
-POST {{baseUrl}}/playlists/{{playlistId}}/songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### ERR - Update another user's playlist
-PATCH {{baseUrl}}/playlists/{{playlistId}}
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "title": "Hacked Playlist"
+  "receiptCode": "GR-20260928-04",
+  "supplierId": 1,
+  "productId": 7,
+  "batchNumber": "LOT-BEEF-9901",
+  "expDate": "2026-10-15",
+  "quantity": 30,
+  "importPrice": 82000,
+  "note": "Nhập thăn bò Úc mát nguyên tảng bảo quản lạnh 0-2 độ C"
 }
 
 
-### ─────────────────────────────────────────
-### ARTIST FOLLOWS
-### ─────────────────────────────────────────
+### ==============================================================================
+### 09. PAYMENT GATEWAY - VNPAY SANDBOX (/v1/payment)
+### ==============================================================================
 
-### 49. Follow artist
-POST {{baseUrl}}/artists/{{userId}}/follow
-Authorization: Bearer {{authToken}}
+### 9.1 Tạo đường dẫn URL chuyển hướng cổng thanh toán VNPAY cho đơn hàng #2
+GET {{baseUrl}}/payment/vnpay/create-payment/2
+Accept: {{contentType}}
 
-### 50. Unfollow artist
-DELETE {{baseUrl}}/artists/{{userId}}/follow
-Authorization: Bearer {{authToken}}
-
-### 51. Check if following artist
-GET {{baseUrl}}/artists/{{userId}}/following/status
-Authorization: Bearer {{authToken}}
-
-### 52. Get follower count
-GET {{baseUrl}}/artists/{{userId}}/followers/count
-
-### 53. Get artists I follow
-GET {{baseUrl}}/artists/following
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - ARTIST FOLLOWS
-### ─────────────────────────────────────────
-
-### ERR - Follow same artist twice
-POST {{baseUrl}}/artists/{{userId}}/follow
-Authorization: Bearer {{authToken}}
+### 9.2 VNPAY IPN Callback (Mô phỏng gọi khi thanh toán thành công)
+GET {{baseUrl}}/payment/vnpay-callback?vnp_ResponseCode=00&vnp_TxnRef=2&vnp_Amount=25000000&vnp_BankCode=NCB&vnp_OrderInfo=Thanh+toan+don+hang+2
 
 
-### ─────────────────────────────────────────
-### PLAY HISTORY
-### ─────────────────────────────────────────
+### ==============================================================================
+### 10. CLOUDINARY FILE UPLOAD (/v1/upload)
+### ==============================================================================
 
-### 54. Record play history
-POST {{baseUrl}}/history/songs/{{songId}}
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "secondsPlayed": 180,
-  "deviceType": "DESKTOP"
-}
-
-### 55. Get my play history
-GET {{baseUrl}}/history
-Authorization: Bearer {{authToken}}
-
-### 56. Clear play history
-DELETE {{baseUrl}}/history
-Authorization: Bearer {{authToken}}
-
-
-### ─────────────────────────────────────────
-### SONG COMMENTS
-### ─────────────────────────────────────────
-
-### 57. Add comment
-# @name createComment
-POST {{baseUrl}}/songs/{{songId}}/comments
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "content": "Great song!"
-}
-
-### ─────────────────────────────────────────
-@commentId = {{createComment.response.body.id}}
-### ─────────────────────────────────────────
-
-### 58. Add reply to comment
-POST {{baseUrl}}/songs/{{songId}}/comments
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "content": "I agree!",
-  "parentCommentId": {{commentId}}
-}
-
-### 59. Get top-level comments for song
-GET {{baseUrl}}/songs/{{songId}}/comments
-
-### 60. Get replies for comment
-GET {{baseUrl}}/songs/{{songId}}/comments/{{commentId}}/replies
-
-### 61. Delete comment (owner only)
-DELETE {{baseUrl}}/songs/{{songId}}/comments/{{commentId}}
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - COMMENTS
-### ─────────────────────────────────────────
-
-### ERR - Delete another user's comment
-DELETE {{baseUrl}}/songs/{{songId}}/comments/{{commentId}}
-Authorization: Bearer {{authToken}}
-
-
-### ─────────────────────────────────────────
-### SUBSCRIPTIONS
-### ─────────────────────────────────────────
-
-### 62. Subscribe to PRO (sends confirmation email)
-POST {{baseUrl}}/subscriptions
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "planType": "PRO"
-}
-
-### 63. Subscribe to PREMIUM (sends confirmation email)
-POST {{baseUrl}}/subscriptions
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "planType": "PREMIUM"
-}
-
-### 64. Check active subscription
-GET {{baseUrl}}/subscriptions/active
-Authorization: Bearer {{authToken}}
-
-### 65. Get subscription history
-GET {{baseUrl}}/subscriptions
-Authorization: Bearer {{authToken}}
-
-### 66. Cancel subscription (sends cancellation email)
-DELETE {{baseUrl}}/subscriptions/cancel
-Authorization: Bearer {{authToken}}
-
-
-### ─────────────────────────────────────────
-### ARTIST EARNINGS
-### ─────────────────────────────────────────
-
-### 67. Get my earnings
-GET {{baseUrl}}/earnings
-Authorization: Bearer {{authToken}}
-
-### 68. Get earnings summary
-GET {{baseUrl}}/earnings/summary
-Authorization: Bearer {{authToken}}
-
-### 69. Get earnings by artist id (admin)
-GET {{baseUrl}}/earnings/{{userId}}
-Authorization: Bearer {{authToken}}
-
-
-### ─────────────────────────────────────────
-### ADMIN
-### ─────────────────────────────────────────
-
-### 70. Get all users (admin only)
-GET {{baseUrl}}/admin/users
-Authorization: Bearer {{authToken}}
-
-### 71. Search users (admin only)
-GET {{baseUrl}}/admin/users?query=test
-Authorization: Bearer {{authToken}}
-
-### 72. Get users by role (admin only)
-GET {{baseUrl}}/admin/users/role/ARTIST
-Authorization: Bearer {{authToken}}
-
-### 73. Update user role (admin only)
-PATCH {{baseUrl}}/admin/users/{{userId}}/role
-Authorization: Bearer {{authToken}}
-Content-Type: {{contentType}}
-
-{
-  "role": "ARTIST",
-  "accountType": "NORMAL"
-}
-
-### 74. Deactivate user (admin only)
-PATCH {{baseUrl}}/admin/users/{{userId}}/deactivate
-Authorization: Bearer {{authToken}}
-
-### 75. Activate user (admin only)
-PATCH {{baseUrl}}/admin/users/{{userId}}/activate
-Authorization: Bearer {{authToken}}
-
-### 76. Hard delete user (admin only)
-DELETE {{baseUrl}}/admin/users/{{userId}}
-Authorization: Bearer {{authToken}}
-
-### 77. Hard delete song (admin only)
-DELETE {{baseUrl}}/admin/songs/{{songId}}
-Authorization: Bearer {{authToken}}
-
-### 78. Publish any song (admin only)
-PATCH {{baseUrl}}/admin/songs/{{songId}}/publish
-Authorization: Bearer {{authToken}}
-
-### 79. Get all playlists including private (admin only)
-GET {{baseUrl}}/admin/playlists
-Authorization: Bearer {{authToken}}
-
-### 80. Get all songs including private (admin only)
-GET {{baseUrl}}/admin/songs
-Authorization: Bearer {{authToken}}
-
-### Get all subscriptions (admin only)
-GET {{baseUrl}}/admin/subscriptions
-Authorization: Bearer {{authToken}}
-
-### Get subscriptions by user (admin only)
-GET {{baseUrl}}/admin/subscriptions/user/{{userId}}
-Authorization: Bearer {{authToken}}
-
-### ─────────────────────────────────────────
-### ERROR CASES - ADMIN
-### ─────────────────────────────────────────
-
-### ERR - Access admin without admin role
-GET {{baseUrl}}/admin/users
-
+### 10.1 Tải ảnh sản phẩm lên Cloudinary (Signed Mode)
+# Ghi chú: Chạy lệnh CURL dưới Terminal hoặc sử dụng Postman Form-Data:
+# curl -X POST "http://localhost:8080/api/v1/upload/image?folder=products" \
+#   -F "file=@/path/to/image.jpg"

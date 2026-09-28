@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "UTC Backend API Collection",
-    "description": "Collection test toàn bộ API dự án Spring Boot Backend UTC",
+    "name": "Ubofood Backend API Collection",
+    "description": "Collection test toàn bộ 100% API dự án Spring Boot Backend Chuỗi Cửa Hàng Thực Phẩm Mát Ubofood",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -12,6 +12,21 @@
     },
     {
       "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cashierToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerToken",
       "value": "",
       "type": "string"
     }
@@ -38,7 +53,7 @@
       "name": "2. Authentication (Auth)",
       "item": [
         {
-          "name": "Login (Đăng nhập)",
+          "name": "Login Admin",
           "event": [
             {
               "listen": "test",
@@ -47,6 +62,7 @@
                   "var jsonData = pm.response.json();",
                   "if (jsonData.data && jsonData.data.accessToken) {",
                   "    pm.collectionVariables.set('token', jsonData.data.accessToken);",
+                  "    pm.collectionVariables.set('adminToken', jsonData.data.accessToken);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -63,7 +79,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}"
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/v1/auth/login",
@@ -73,7 +89,21 @@
           }
         },
         {
-          "name": "Register (Đăng ký)",
+          "name": "Login Cashier (Thu Ngân)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('cashierToken', jsonData.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -84,7 +114,63 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"nhanvien01\",\n  \"password\": \"123456\",\n  \"fullName\": \"Nguyễn Văn Nhân Viên\",\n  \"email\": \"nhanvien01@utc.edu.vn\",\n  \"phone\": \"0911223344\",\n  \"roleId\": 2\n}"
+              "raw": "{\n  \"username\": \"thungan01\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login Customer (Khách Hàng)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('customerToken', jsonData.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"khachhang01\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Register New Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"khachhangmoi\",\n  \"password\": \"password123\",\n  \"fullName\": \"Trần Văn Khách Mới\",\n  \"phone\": \"0934567899\",\n  \"email\": \"khachmoi@example.com\",\n  \"avatarUrl\": \"https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80\",\n  \"role\": \"CUSTOMER\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/v1/auth/register",
@@ -94,7 +180,7 @@
           }
         },
         {
-          "name": "Change Password (Đổi mật khẩu)",
+          "name": "Refresh Token",
           "request": {
             "method": "POST",
             "header": [
@@ -105,7 +191,28 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"admin\",\n  \"oldPassword\": \"123456\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+              "raw": "{\n  \"refreshToken\": \"{{token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "refresh-token"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"khachhangmoi\",\n  \"oldPassword\": \"password123\",\n  \"newPassword\": \"newPassword456!\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/v1/auth/change-password",
@@ -115,30 +222,191 @@
           }
         },
         {
-          "name": "Forgot Password (Quên mật khẩu)",
+          "name": "Forgot Password",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/auth/forgot-password?email=admin@utc.edu.vn",
+              "raw": "{{baseUrl}}/v1/auth/forgot-password?email=customer01@gmail.com",
               "host": ["{{baseUrl}}"],
               "path": ["v1", "auth", "forgot-password"],
               "query": [
                 {
                   "key": "email",
-                  "value": "admin@utc.edu.vn"
+                  "value": "customer01@gmail.com"
                 }
               ]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer01@gmail.com\",\n  \"resetToken\": \"PASTE_RESET_TOKEN_HERE\",\n  \"newPassword\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "reset-password"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "logout"]
             }
           }
         }
       ]
     },
     {
-      "name": "3. Danh Mục (Categories)",
+      "name": "3. Users (Quản lý người dùng)",
       "item": [
         {
-          "name": "Get All Categories",
+          "name": "Get All Active Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users"]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get User by Username",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/username/khachhang01",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "username", "khachhang01"]
+            }
+          }
+        },
+        {
+          "name": "Create User (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"nhanvienkho01\",\n  \"password\": \"password123\",\n  \"fullName\": \"Phạm Văn Kho\",\n  \"phone\": \"0911223399\",\n  \"email\": \"kho01@utc.edu.vn\",\n  \"avatarUrl\": \"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80\",\n  \"role\": \"CASHIER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Lê Văn Mua Hàng (VIP)\",\n  \"phone\": \"0966666666\",\n  \"email\": \"customer01@gmail.com\",\n  \"isActive\": true,\n  \"role\": \"CUSTOMER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/3",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "3"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/4",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "4"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Categories (Danh mục)",
+      "item": [
+        {
+          "name": "Get All Active Categories",
           "request": {
             "method": "GET",
             "header": [],
@@ -146,6 +414,30 @@
               "raw": "{{baseUrl}}/v1/categories",
               "host": ["{{baseUrl}}"],
               "path": ["v1", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get Category by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "categories", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Category by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/categories/slug/thit-heo-tuoi-mat",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "categories", "slug", "thit-heo-tuoi-mat"]
             }
           }
         },
@@ -157,11 +449,15 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Rau Củ Quả Tươi\",\n  \"slug\": \"rau-cu-qua-tuoi\",\n  \"description\": \"Các loại rau củ hữu cơ tươi ngon\",\n  \"isActive\": true\n}"
+              "raw": "{\n  \"name\": \"Trái Cây Nhập Khẩu\",\n  \"slug\": \"trai-cay-nhap-khau\",\n  \"icon\": \"🍎\",\n  \"description\": \"Trái cây tươi nhập khẩu chính ngạch chuẩn VietGAP\",\n  \"displayOrder\": 8,\n  \"isActive\": true\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/v1/categories",
@@ -169,14 +465,56 @@
               "path": ["v1", "categories"]
             }
           }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Săn Sale Giờ Vàng\",\n  \"slug\": \"san-sale\",\n  \"icon\": \"🔥\",\n  \"description\": \"Ưu đãi sốc giờ vàng mỗi ngày giảm tới 50% - Cập nhật liên tục\",\n  \"displayOrder\": 1,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "categories", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/categories/7",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "categories", "7"]
+            }
+          }
         }
       ]
     },
     {
-      "name": "4. Sản Phẩm (Products)",
+      "name": "5. Products (Sản phẩm Ubofood)",
       "item": [
         {
-          "name": "Get All Products",
+          "name": "Get All Active Products",
           "request": {
             "method": "GET",
             "header": [],
@@ -188,20 +526,32 @@
           }
         },
         {
-          "name": "Search Products by Name",
+          "name": "Search Products by Keyword",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/products/search?keyword=Vinamilk",
+              "raw": "{{baseUrl}}/v1/products/search?keyword=bò",
               "host": ["{{baseUrl}}"],
               "path": ["v1", "products", "search"],
               "query": [
                 {
                   "key": "keyword",
-                  "value": "Vinamilk"
+                  "value": "bò"
                 }
               ]
+            }
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/products/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "products", "2"]
             }
           }
         },
@@ -211,9 +561,45 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/products/sku/SP-VNM-1L-001",
+              "raw": "{{baseUrl}}/v1/products/sku/BOUC-FS500",
               "host": ["{{baseUrl}}"],
-              "path": ["v1", "products", "sku", "SP-VNM-1L-001"]
+              "path": ["v1", "products", "sku", "BOUC-FS500"]
+            }
+          }
+        },
+        {
+          "name": "Get Product by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/products/slug/ba-chi-bo-uc-flash-sale",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "products", "slug", "ba-chi-bo-uc-flash-sale"]
+            }
+          }
+        },
+        {
+          "name": "Get Products by Category ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/products/category/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "products", "category", "2"]
+            }
+          }
+        },
+        {
+          "name": "Get Products by Category Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/products/category-slug/thit-heo-tuoi-mat",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "products", "category-slug", "thit-heo-tuoi-mat"]
             }
           }
         },
@@ -225,11 +611,15 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"categoryId\": 1,\n  \"sku\": \"SP-TH-1L-009\",\n  \"name\": \"Sữa tươi tiệt trùng TH True MILK 1L\",\n  \"unit\": \"Hộp\",\n  \"isWeighing\": false,\n  \"price\": 37000.00,\n  \"costPrice\": 30000.00,\n  \"stockQuantity\": 100.000,\n  \"origin\": \"Việt Nam\",\n  \"imageUrl\": \"https://res.cloudinary.com/demo/image/upload/sample.jpg\",\n  \"isActive\": true\n}"
+              "raw": "{\n  \"categoryId\": 3,\n  \"sku\": \"BO-LALOT-300\",\n  \"slug\": \"bo-cuon-la-lot-so-che\",\n  \"name\": \"Bò Cuộn Lá Lốt Sơ Chế Sẵn Chuẩn Mát\",\n  \"brand\": \"UBOFOOD TIỆN LỢI\",\n  \"origin\": \"Nhập khẩu Úc\",\n  \"standard\": \"euchill\",\n  \"unit\": \"Khay\",\n  \"packWeight\": \"Khay 300g (12 cuốn)\",\n  \"isWeighing\": false,\n  \"price\": 75000,\n  \"originalPrice\": 85000,\n  \"stockQuantity\": 40,\n  \"imageUrl\": \"https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/v1/products",
@@ -237,14 +627,139 @@
               "path": ["v1", "products"]
             }
           }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": 1,\n  \"sku\": \"COMBO-25M\",\n  \"slug\": \"combo-gia-dinh-so-che\",\n  \"name\": \"Combo Gia Đình Sơ Chế Mâm Cơm 25 Phút\",\n  \"brand\": \"UBOFOOD TIỆN LỢI\",\n  \"origin\": \"Ba Vì, Hà Nội\",\n  \"standard\": \"euchill\",\n  \"unit\": \"Khay\",\n  \"packWeight\": \"Khay lớn 1kg\",\n  \"isWeighing\": false,\n  \"price\": 182000,\n  \"originalPrice\": 215000,\n  \"stockQuantity\": 50,\n  \"imageUrl\": \"https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/products/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "products", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/products/16",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "products", "16"]
+            }
+          }
         }
       ]
     },
     {
-      "name": "5. Bán Hàng & Đơn Hàng (Orders)",
+      "name": "6. Vouchers (Mã giảm giá)",
       "item": [
         {
-          "name": "Create Sales Order",
+          "name": "Get All Active Vouchers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/vouchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "vouchers"]
+            }
+          }
+        },
+        {
+          "name": "Validate Voucher GIAM50K",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/vouchers/GIAM50K",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "vouchers", "GIAM50K"]
+            }
+          }
+        },
+        {
+          "name": "Validate Voucher FREESHIP2H",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/vouchers/FREESHIP2H",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "vouchers", "FREESHIP2H"]
+            }
+          }
+        },
+        {
+          "name": "Create Voucher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"UBOVIP100\",\n  \"badge\": \"VIP -100K\",\n  \"title\": \"Giảm 100.000đ cho đơn hàng thực phẩm từ 500.000đ\",\n  \"discountType\": \"FIXED_AMOUNT\",\n  \"discountValue\": 100000,\n  \"minOrderAmount\": 500000,\n  \"startDate\": \"2026-09-01T00:00:00\",\n  \"endDate\": \"2026-12-31T23:59:59\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/vouchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "vouchers"]
+            }
+          }
+        },
+        {
+          "name": "Delete Voucher",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/vouchers/4",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "vouchers", "4"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Orders (Bán hàng & POS)",
+      "item": [
+        {
+          "name": "Create Online Order (With Vouchers)",
           "request": {
             "method": "POST",
             "header": [
@@ -255,7 +770,32 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderCode\": \"ORD-POSTMAN-001\",\n  \"channel\": \"STORE\",\n  \"userId\": 3,\n  \"cashierId\": 2,\n  \"customerName\": \"Nguyễn Văn Khách\",\n  \"customerPhone\": \"0912345678\",\n  \"shippingAddress\": \"Hà Nội\",\n  \"totalAmount\": 70000.00,\n  \"discountAmount\": 0.00,\n  \"finalAmount\": 70000.00,\n  \"paidAmount\": 100000.00,\n  \"changeAmount\": 30000.00,\n  \"paymentMethod\": \"CASH\",\n  \"paymentStatus\": \"PAID\",\n  \"orderStatus\": \"COMPLETED\",\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"productName\": \"Sữa tươi tiệt trùng Vinamilk 100% Không đường 1L\",\n      \"unit\": \"Hộp\",\n      \"quantity\": 2.000,\n      \"unitPrice\": 35000.00\n    }\n  ]\n}"
+              "raw": "{\n  \"orderCode\": \"UBO-TEST-ONLINE-99\",\n  \"channel\": \"WEB\",\n  \"userId\": 3,\n  \"customerName\": \"Lê Văn Mua Hàng\",\n  \"customerPhone\": \"0966666666\",\n  \"shippingAddress\": \"Phòng 1205 Tòa Nhà Landmark 72, Cầu Giấy, Hà Nội\",\n  \"deliveryMethod\": \"FAST_2H\",\n  \"note\": \"Giao hỏa tốc trước 11h trưa để kịp nấu cơm\",\n  \"totalAmount\": 224000,\n  \"shippingFee\": 25000,\n  \"finalAmount\": 174000,\n  \"paymentMethod\": \"COD\",\n  \"orderStatus\": \"PENDING\",\n  \"isPrinted\": false,\n  \"items\": [\n    {\n      \"productId\": 2,\n      \"productName\": \"Ba Chỉ Bò Úc Cuộn Nhúng Lẩu Chuẩn Mát\",\n      \"packWeight\": \"Khay 500g\",\n      \"unit\": \"Khay\",\n      \"quantity\": 1,\n      \"unitPrice\": 89000,\n      \"imageUrl\": \"https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=80\"\n    },\n    {\n      \"productId\": 13,\n      \"productName\": \"Cá Hồi Na Uy Tươi Fillet\",\n      \"packWeight\": \"Khay 250g\",\n      \"unit\": \"Khay\",\n      \"quantity\": 1,\n      \"unitPrice\": 135000,\n      \"imageUrl\": \"https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=80\"\n    }\n  ],\n  \"voucherCodes\": [\n    \"GIAM50K\",\n    \"FREESHIP2H\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Create POS In-Store Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cashierToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderCode\": \"UBO-POS-1002\",\n  \"channel\": \"POS\",\n  \"userId\": 3,\n  \"cashierId\": 2,\n  \"customerName\": \"Lê Văn Mua Hàng\",\n  \"customerPhone\": \"0966666666\",\n  \"shippingAddress\": \"Mua trực tiếp tại quầy Ubofood\",\n  \"deliveryMethod\": \"TAKE_AWAY\",\n  \"note\": \"Khách thanh toán quét mã VNPAY tại quầy\",\n  \"totalAmount\": 113600,\n  \"shippingFee\": 0,\n  \"finalAmount\": 113600,\n  \"paymentMethod\": \"VNPAY\",\n  \"orderStatus\": \"COMPLETED\",\n  \"isPrinted\": true,\n  \"items\": [\n    {\n      \"productId\": 3,\n      \"productName\": \"Sườn Thăn Heo Truyền Thống\",\n      \"packWeight\": \"Khay 300g\",\n      \"unit\": \"Khay\",\n      \"quantity\": 1,\n      \"unitPrice\": 71600,\n      \"imageUrl\": \"https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80\"\n    },\n    {\n      \"productId\": 10,\n      \"productName\": \"Trứng Gà Ta Thuần Việt\",\n      \"packWeight\": \"Hộp 10 quả\",\n      \"unit\": \"Hộp\",\n      \"quantity\": 1,\n      \"unitPrice\": 42000,\n      \"imageUrl\": \"https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80\"\n    }\n  ],\n  \"voucherCodes\": []\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/v1/orders",
@@ -268,62 +808,363 @@
           "name": "Get All Orders",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/v1/orders",
               "host": ["{{baseUrl}}"],
               "path": ["v1", "orders"]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "6. Thanh Toán VNPAY",
-      "item": [
+        },
         {
-          "name": "Create VNPAY URL for Order #1",
+          "name": "Get Order by ID",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/payment/vnpay/create-payment/1",
+              "raw": "{{baseUrl}}/v1/orders/1",
               "host": ["{{baseUrl}}"],
-              "path": ["v1", "payment", "vnpay", "create-payment", "1"]
+              "path": ["v1", "orders", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Order by Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/code/UBO-WEB-20260928",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "orders", "code", "UBO-WEB-20260928"]
+            }
+          }
+        },
+        {
+          "name": "Get Orders by User ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/user/3",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "orders", "user", "3"]
+            }
+          }
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/2/status?status=DELIVERING",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "orders", "2", "status"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "DELIVERING"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Order As Printed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cashierToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/1/print",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "orders", "1", "print"]
             }
           }
         }
       ]
     },
     {
-      "name": "7. Nhập Kho (Goods Receipts)",
+      "name": "8. Suppliers (Nhà cung cấp)",
+      "item": [
+        {
+          "name": "Get All Active Suppliers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/suppliers",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "suppliers"]
+            }
+          }
+        },
+        {
+          "name": "Get Supplier by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/suppliers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "suppliers", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Supplier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nông Trại Hữu Cơ Đà Lạt GAP Farm\",\n  \"phone\": \"02633556677\",\n  \"address\": \"Phường 7, TP. Đà Lạt, Tỉnh Lâm Đồng\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/suppliers",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "suppliers"]
+            }
+          }
+        },
+        {
+          "name": "Update Supplier",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tập Đoàn Nông Nghiệp Ba Vì Clean Farm (Chi nhánh 1)\",\n  \"phone\": \"0243888999\",\n  \"address\": \"Huyện Ba Vì, TP. Hà Nội\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/suppliers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "suppliers", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Supplier",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/suppliers/4",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "suppliers", "4"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Goods Receipts (Nhập kho theo lô)",
       "item": [
         {
           "name": "Get All Goods Receipts",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/v1/goods-receipts",
               "host": ["{{baseUrl}}"],
               "path": ["v1", "goods-receipts"]
             }
           }
+        },
+        {
+          "name": "Get Goods Receipt by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/goods-receipts/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "goods-receipts", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Goods Receipt by Code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/goods-receipts/code/GR-20260928-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "goods-receipts", "code", "GR-20260928-01"]
+            }
+          }
+        },
+        {
+          "name": "Create Goods Receipt (Nhập kho)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiptCode\": \"GR-20260928-04\",\n  \"supplierId\": 1,\n  \"productId\": 7,\n  \"batchNumber\": \"LOT-BEEF-9901\",\n  \"expDate\": \"2026-10-15\",\n  \"quantity\": 30,\n  \"importPrice\": 82000,\n  \"note\": \"Nhập thăn bò Úc mát nguyên tảng bảo quản lạnh 0-2 độ C\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/goods-receipts?createdByUserId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "goods-receipts"],
+              "query": [
+                {
+                  "key": "createdByUserId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "name": "8. Tồn Kho (Inventory History)",
+      "name": "10. Payments - VNPAY (Thanh toán)",
       "item": [
         {
-          "name": "Get Stock History of Product #1",
+          "name": "Create VNPAY URL for Order #2",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/inventory-transactions/product/1",
+              "raw": "{{baseUrl}}/v1/payment/vnpay/create-payment/2",
               "host": ["{{baseUrl}}"],
-              "path": ["v1", "inventory-transactions", "product", "1"]
+              "path": ["v1", "payment", "vnpay", "create-payment", "2"]
+            }
+          }
+        },
+        {
+          "name": "VNPAY Callback IPN Simulation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/payment/vnpay-callback?vnp_ResponseCode=00&vnp_TxnRef=2&vnp_Amount=25000000&vnp_BankCode=NCB&vnp_OrderInfo=Thanh+toan+don+hang+2",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "payment", "vnpay-callback"],
+              "query": [
+                {
+                  "key": "vnp_ResponseCode",
+                  "value": "00"
+                },
+                {
+                  "key": "vnp_TxnRef",
+                  "value": "2"
+                },
+                {
+                  "key": "vnp_Amount",
+                  "value": "25000000"
+                },
+                {
+                  "key": "vnp_BankCode",
+                  "value": "NCB"
+                },
+                {
+                  "key": "vnp_OrderInfo",
+                  "value": "Thanh+toan+don+hang+2"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Upload (Tải ảnh Cloudinary)",
+      "item": [
+        {
+          "name": "Upload Product Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "folder",
+                  "value": "products",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/upload/image",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "upload", "image"]
             }
           }
         }

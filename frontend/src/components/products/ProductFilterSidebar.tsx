@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { CATEGORIES } from "@/data/products";
+import { CategoryItem } from "@/types/product";
 
 export interface FilterState {
   categorySlug: string;
@@ -18,6 +18,7 @@ interface ProductFilterSidebarProps {
   onFilterChange: (filters: FilterState) => void;
   onReset: () => void;
   filteredCount: number;
+  categories?: CategoryItem[];
 }
 
 export default function ProductFilterSidebar({
@@ -25,6 +26,7 @@ export default function ProductFilterSidebar({
   onFilterChange,
   onReset,
   filteredCount,
+  categories = [],
 }: ProductFilterSidebarProps) {
   const toggleStandard = (key: string) => {
     const next = filters.standards.includes(key)
@@ -99,7 +101,7 @@ export default function ProductFilterSidebar({
               <span className="text-[11px] text-gray-400">142</span>
             </Link>
 
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isActive = filters.categorySlug === cat.slug;
               return (
                 <Link

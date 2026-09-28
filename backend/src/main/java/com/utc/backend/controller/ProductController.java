@@ -46,10 +46,22 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(product, "Lấy thông tin sản phẩm theo mã vạch SKU thành công"));
     }
 
+    @GetMapping("/slug/{slug}")
+    public ResponseEntity<ApiResponse<ProductResponseDto>> getProductBySlug(@PathVariable String slug) {
+        ProductResponseDto product = productService.getProductBySlug(slug);
+        return ResponseEntity.ok(ApiResponse.success(product, "Lấy thông tin sản phẩm theo slug thành công"));
+    }
+
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getProductsByCategory(@PathVariable Long categoryId) {
         List<ProductResponseDto> products = productService.getProductsByCategory(categoryId);
         return ResponseEntity.ok(ApiResponse.success(products, "Lấy danh sách sản phẩm theo danh mục thành công"));
+    }
+
+    @GetMapping("/category-slug/{categorySlug}")
+    public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getProductsByCategorySlug(@PathVariable String categorySlug) {
+        List<ProductResponseDto> products = productService.getProductsByCategorySlug(categorySlug);
+        return ResponseEntity.ok(ApiResponse.success(products, "Lấy danh sách sản phẩm theo slug danh mục thành công"));
     }
 
     @GetMapping("/search")

@@ -1,8 +1,78 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { storeService } from "@/services/storeService";
+
+interface UICategoryItem {
+  id: string;
+  slug?: string;
+  name: string;
+  subtitle: string;
+  emoji: string;
+  bgColor: string;
+  badge?: string;
+  icon?: React.ReactNode;
+}
 
 export default function CategoryIcons() {
-  const categories = [
+  const [apiCategories, setApiCategories] = useState<UICategoryItem[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    storeService.getCategories().then((cats) => {
+      if (!isMounted || !cats || cats.length === 0) return;
+      const formatted: UICategoryItem[] = cats.map((c, idx) => {
+        let emoji = c.icon || "🥩";
+        let bg = "bg-emerald-50 dark:bg-emerald-950/30";
+        let subtitle = "100% Tươi Mới";
+        let badge: string | undefined = undefined;
+
+        if (c.slug === "san-sale") {
+          bg = "bg-orange-50 dark:bg-orange-950/40 border border-orange-200/80 dark:border-orange-800/40";
+          badge = "HOT -35%";
+          subtitle = "Giảm sâu đến 35%";
+          emoji = "🔥";
+        } else if (c.slug.includes("bo")) {
+          bg = "bg-red-50 dark:bg-red-950/30";
+          subtitle = "Mềm Ngọt Chuẩn Viện";
+          emoji = "🥩";
+        } else if (c.slug.includes("trung") || c.slug.includes("cam")) {
+          bg = "bg-amber-50 dark:bg-amber-950/30";
+          subtitle = "Trứng gà ta thả vườn";
+          emoji = "🥚";
+        } else if (c.slug.includes("hai-san") || c.slug.includes("thuy")) {
+          bg = "bg-cyan-50 dark:bg-cyan-950/30";
+          subtitle = "Đánh bắt trong ngày";
+          emoji = "🦐";
+        } else if (c.slug.includes("rau")) {
+          bg = "bg-green-50 dark:bg-green-950/30";
+          subtitle = "Hái tại nông trại";
+          emoji = "🥬";
+        } else if (c.slug.includes("dau-hu")) {
+          bg = "bg-yellow-50 dark:bg-yellow-950/30";
+          subtitle = "Nấu nhanh 15 phút";
+          emoji = "🥢";
+        }
+
+        return {
+          id: c.slug,
+          slug: c.slug,
+          name: c.name,
+          subtitle,
+          emoji,
+          bgColor: bg,
+          badge,
+        };
+      });
+      setApiCategories(formatted);
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const defaultCategories: UICategoryItem[] = [
     {
       id: "sale",
       name: "Săn Sale Giờ Vàng",
@@ -91,6 +161,8 @@ export default function CategoryIcons() {
     },
   ];
 
+  const activeCategories = apiCategories.length > 0 ? apiCategories : defaultCategories;
+
   return (
     <section className="mt-8 sm:mt-10">
       {/* Header */}
@@ -107,19 +179,10 @@ export default function CategoryIcons() {
         </Link>
       </div>
 
-      {/* 7 Category Items Grid */}
+      {/* Category Items Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
-        {categories.map((cat) => {
-          const slugMap: Record<string, string> = {
-            sale: "san-sale",
-            pork: "thit-heo-tuoi-mat",
-            beef: "thit-bo-uc",
-            poultry: "trung-gia-cam",
-            seafood: "thuy-hai-san-tuoi",
-            veggies: "rau-cu-vietgap",
-            tofu: "dau-hu-so-che",
-          };
-          const targetSlug = slugMap[cat.id] || "thit-heo-tuoi-mat";
+        {activeCategories.map((cat) => {
+          const targetSlug = cat.slug || cat.id;
 
           return (
             <Link
@@ -133,7 +196,7 @@ export default function CategoryIcons() {
                 >
                   {cat.emoji}
                 </div>
-                {"badge" in cat && cat.badge && (
+                {cat.badge && (
                   <span className="absolute -top-1.5 -right-2 px-1.5 py-0.5 rounded-full bg-red-600 text-[9px] font-black text-white shadow-xs">
                     {cat.badge}
                   </span>

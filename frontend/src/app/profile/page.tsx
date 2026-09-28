@@ -5,18 +5,54 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
+import { API_URL } from "@/lib/constants";
+
 export default function ProfilePage() {
-  const [user, setUser] = useState<{ fullName: string; email?: string; phone?: string }>({
-    fullName: "Nguyễn Văn A",
-    email: "nguyenvana@gmail.com",
+  const [user, setUser] = useState<{
+    id?: number;
+    fullName: string;
+    email?: string;
+    phone?: string;
+    accumulatedPoints?: number;
+    role?: string;
+  }>({
+    fullName: "Khách Hàng",
+    email: "customer@gmail.com",
     phone: "0912 345 678",
+    accumulatedPoints: 150,
   });
+
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem("user");
       if (stored) {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
+
+        // Fetch fresh info from backend API if userId exists
+        if (parsed.id) {
+          fetch(`${API_URL}/users/${parsed.id}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data?.data) setUser(data.data);
+            })
+            .catch(() => {});
+
+          // Fetch user orders from API
+          setLoadingOrders(true);
+          fetch(`${API_URL}/orders/user/${parsed.id}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data?.data && Array.isArray(data.data)) {
+                setOrders(data.data);
+              }
+            })
+            .catch(() => {})
+            .finally(() => setLoadingOrders(false));
+        }
       }
     } catch {}
   }, []);
@@ -49,7 +85,7 @@ export default function ProfilePage() {
                   {user.fullName}
                 </h1>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Thành viên thân thiết Ubofood • Điểm tích lũy: <span className="font-bold text-[#195329]">240 điểm</span>
+                  Thành viên thân thiết Ubofood • Điểm tích lũy: <span className="font-bold text-[#195329] dark:text-emerald-400">{user.accumulatedPoints ?? 150} điểm</span>
                 </p>
               </div>
             </div>
@@ -73,14 +109,56 @@ export default function ProfilePage() {
 
             <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-800/60 border border-gray-100 dark:border-zinc-700">
               <span className="text-gray-400 text-xs block mb-1">Email liên hệ</span>
-              <span className="font-bold text-gray-800 dark:text-gray-100">{user.email || "nguyenvana@gmail.com"}</span>
+              <span className="font-bold text-gray-800 dark:text-gray-100">{user.email || "customer@gmail.com"}</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-800/60 border border-gray-100 dark:border-zinc-700">
               <span className="text-gray-400 text-xs block mb-1">Địa chỉ giao hàng mặc định</span>
-              <span className="font-bold text-gray-800 dark:text-gray-100">Cầu Giấy, Hà Nội</span>
+              <span className="font-bold text-gray-800 dark:text-gray-100">Số 3 Cầu Giấy, Láng Thượng, Hà Nội</span>
             </div>
           </div>
+
+          {/* User Orders History from API */}
+          {orders.length > 0 && (
+            <div className="pt-4 border-t border-gray-100 dark:border-zinc-800 space-y-3">
+              <h3 className="font-extrabold text-sm sm:text-base text-gray-900 dark:text-white flex items-center justify-between">
+                <span>📦 Đơn Hàng Của Bạn ({orders.length})</span>
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Dữ liệu trực tiếp từ API</span>
+              </h3>
+
+              <div className="space-y-2.5">
+                {orders.map((ord: any) => (
+                  <div
+                    key={ord.id}
+                    className="p-3.5 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-gray-50/60 dark:bg-zinc-800/40 flex flex-wrap items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-[#195329] dark:text-emerald-400 font-mono text-sm">
+                          {ord.orderCode}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          {ord.orderStatus || "PENDING"}
+                        </span>
+                      </div>
+                      <p className="text-gray-400 mt-1 text-[11px]">
+                        Ngày tạo: {ord.createdAt ? new Date(ord.createdAt).toLocaleString("vi-VN") : "Hôm nay"} • {ord.items?.length || 1} món hàng
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-sm font-black text-red-600 dark:text-red-400 block">
+                        {new Intl.NumberFormat("vi-VN").format(ord.finalAmount || ord.totalAmount)}đ
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        {ord.paymentMethod || "COD"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick Shortcuts */}
           <div className="pt-4 flex flex-wrap items-center gap-3">
