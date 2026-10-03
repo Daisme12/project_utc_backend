@@ -36,6 +36,7 @@ public class ProductMapper {
                 .rating(BigDecimal.valueOf(5.0))
                 .reviewCount(0)
                 .imageUrl(dto.imageUrl())
+                .isFeatured(dto.isFeatured() != null ? dto.isFeatured() : false)
                 .isActive(dto.isActive() != null ? dto.isActive() : true)
                 .build();
     }
@@ -86,6 +87,9 @@ public class ProductMapper {
         if (dto.imageUrl() != null) {
             product.setImageUrl(dto.imageUrl());
         }
+        if (dto.isFeatured() != null) {
+            product.setIsFeatured(dto.isFeatured());
+        }
         if (dto.isActive() != null) {
             product.setIsActive(dto.isActive());
         }
@@ -113,6 +117,7 @@ public class ProductMapper {
                 product.getRating(),
                 product.getReviewCount(),
                 product.getImageUrl(),
+                product.getIsFeatured(),
                 product.getIsActive(),
                 product.getCreatedAt()
         );

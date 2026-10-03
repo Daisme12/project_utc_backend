@@ -2,8 +2,16 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
 import { adminService, AdminOrder, AdminProduct } from "@/services/adminService";
+import DateRangePicker from "@/components/common/DateRangePicker";
+import {
+  ADMIN_ORDER_TABS,
+  matchesOrderStatus,
+  normalizeOrderStatus,
+  getOrderStatusInfo,
+} from "@/lib/orderStatus";
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -27,10 +35,10 @@ export default function AdminOrdersPage() {
     "DEFAULT" | "PRICE_ASC" | "PRICE_DESC" | "STOCK_DESC" | "STOCK_ASC" | "NAME_AZ" | "NAME_ZA"
   >("DEFAULT");
 
-  // Date Filters
-  const [dateFilterType, setDateFilterType] = useState<"ALL" | "TODAY" | "7DAYS" | "30DAYS" | "CUSTOM">("ALL");
+  // Date Range Filters & Smart Priority Sort
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"PRIORITY" | "NEWEST" | "OLDEST" | "AMOUNT_DESC">("PRIORITY");
 
   // Pagination (Default 50 items per page, cho phép chọn 20, 50, 100, 200)
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -38,6 +46,7 @@ export default function AdminOrdersPage() {
 
   // Create Order at Store (POS) Modal
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+  const [isPosModalFullscreen, setIsPosModalFullscreen] = useState(false);
   const [posProductSearch, setPosProductSearch] = useState("");
   const [posCart, setPosCart] = useState<{ product: AdminProduct; quantity: number }[]>([]);
   const [posCustomer, setPosCustomer] = useState({
@@ -80,10 +89,50 @@ export default function AdminOrdersPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isPosModalFullscreen) {
+        setIsPosModalFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPosModalFullscreen]);
+
+  // Operational KPI Statistics for Urgent Prioritization
+  const operationalStats = useMemo(() => {
+    let pending = 0;
+    let processing = 0;
+    let delivering = 0;
+    let completed = 0;
+    let cancelled = 0;
+    let todayRevenue = 0;
+
+    orders.forEach((o) => {
+      const canonical = normalizeOrderStatus(o.orderStatus);
+      if (canonical === "PENDING") pending++;
+      else if (canonical === "PROCESSING") processing++;
+      else if (canonical === "DELIVERING") delivering++;
+      else if (canonical === "COMPLETED") {
+        completed++;
+        todayRevenue += Number(o.finalAmount) || 0;
+      } else if (canonical === "CANCELLED") cancelled++;
+    });
+
+    return {
+      pending,
+      processing,
+      delivering,
+      completed,
+      cancelled,
+      todayRevenue,
+    };
+  }, [orders]);
+
   // Reset page whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, channelFilter, dateFilterType, startDate, endDate, pageSize]);
+  }, [searchQuery, statusFilter, channelFilter, startDate, endDate, sortOrder, pageSize]);
 
   const filteredOrders = useMemo(() => {
     return orders
@@ -92,8 +141,7 @@ export default function AdminOrdersPage() {
           o.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
           o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (o.customerPhone && o.customerPhone.includes(searchQuery));
-        const matchStatus =
-          statusFilter === "ALL" || o.orderStatus === statusFilter;
+        const matchStatus = matchesOrderStatus(o.orderStatus, statusFilter);
         const matchChannel =
           channelFilter === "ALL" || o.channel === channelFilter;
 
@@ -110,31 +158,21 @@ export default function AdminOrdersPage() {
           return 0;
         };
 
-        // Date filter
+        // Date Range Filter (sử dụng component DateRangePicker chuẩn)
         let matchDate = true;
         const itemTime = parseOrderTime(o);
-        if (dateFilterType === "TODAY") {
-          const orderDate = new Date(itemTime || o.createdAt).toDateString();
-          matchDate = orderDate === new Date().toDateString();
-        } else if (dateFilterType === "7DAYS") {
-          const past7 = Date.now() - 7 * 86400000;
-          matchDate = itemTime >= past7;
-        } else if (dateFilterType === "30DAYS") {
-          const past30 = Date.now() - 30 * 86400000;
-          matchDate = itemTime >= past30;
-        } else if (dateFilterType === "CUSTOM") {
-          if (startDate) {
-            matchDate = matchDate && itemTime >= new Date(startDate).getTime();
-          }
-          if (endDate) {
-            matchDate = matchDate && itemTime <= new Date(endDate + "T23:59:59").getTime();
-          }
+        if (startDate) {
+          const startTimestamp = new Date(`${startDate}T00:00:00`).getTime();
+          matchDate = matchDate && itemTime >= startTimestamp;
+        }
+        if (endDate) {
+          const endTimestamp = new Date(`${endDate}T23:59:59.999`).getTime();
+          matchDate = matchDate && itemTime <= endTimestamp;
         }
 
         return matchSearch && matchStatus && matchChannel && matchDate;
       })
       .sort((a, b) => {
-        // Robust sort newest first (mới nhất lên đầu)
         const parseOrderTime = (item: AdminOrder) => {
           if (!item) return 0;
           if (typeof item.createdAt === "string") {
@@ -146,12 +184,59 @@ export default function AdminOrdersPage() {
           }
           return 0;
         };
+
         const tA = parseOrderTime(a);
         const tB = parseOrderTime(b);
-        if (tB !== tA) return tB - tA;
-        return (Number(b.id) || 0) - (Number(a.id) || 0);
+
+        // Smart Priority Sort: Đơn PENDING (chờ duyệt) và PROCESSING (đang sơ chế) lên đầu!
+        if (sortOrder === "PRIORITY") {
+          const getRank = (status: string) => {
+            const canonical = normalizeOrderStatus(status);
+            switch (canonical) {
+              case "PENDING":
+                return 1; // Ưu tiên số 1: Đơn mới cần duyệt gấp!
+              case "PROCESSING":
+                return 2; // Ưu tiên số 2: Đang sơ chế lạnh, cần chuẩn bị & giao 2H
+              case "DELIVERING":
+                return 3; // Ưu tiên số 3: Đang trên đường giao
+              case "COMPLETED":
+                return 4; // Hoàn tất
+              case "CANCELLED":
+                return 5; // Đã hủy
+              default:
+                return 6;
+            }
+          };
+
+          const rankA = getRank(a.orderStatus);
+          const rankB = getRank(b.orderStatus);
+
+          if (rankA !== rankB) {
+            return rankA - rankB; // Rank nhỏ hơn lên đầu
+          }
+
+          // Cùng PENDING hoặc PROCESSING: đơn đặt trước xếp trước để kịp giao 2H
+          if (rankA === 1 || rankA === 2) {
+            return tA - tB;
+          }
+
+          // Mặc định: mới nhất lên đầu
+          return tB - tA;
+        }
+
+        if (sortOrder === "NEWEST") {
+          return tB - tA;
+        }
+        if (sortOrder === "OLDEST") {
+          return tA - tB;
+        }
+        if (sortOrder === "AMOUNT_DESC") {
+          return (Number(b.finalAmount) || 0) - (Number(a.finalAmount) || 0);
+        }
+
+        return tB - tA;
       });
-  }, [orders, searchQuery, statusFilter, channelFilter, dateFilterType, startDate, endDate]);
+  }, [orders, searchQuery, statusFilter, channelFilter, startDate, endDate, sortOrder]);
 
   const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
 
@@ -342,296 +427,573 @@ export default function AdminOrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Quản Lý Đơn Hàng & POS 📦
+            Quản Lý Đơn Hàng & Vận Hành 2H 📦
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Xử lý đơn Web giao nhanh 2 giờ và bán hàng trực tiếp tại điểm bán / quầy thu ngân.
+            Điều phối phê duyệt đơn hàng Web 2H, giám sát sơ chế thực phẩm mát và thanh toán quầy thu ngân.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-2.5">
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-[#2b3d32] text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-[#1a261f] transition-all shadow-xs cursor-pointer"
+          >
+            <span>🔄</span>
+            <span>{loading ? "Đang đồng bộ..." : "Làm mới"}</span>
+          </button>
           <button
             onClick={() => setIsCreateOrderOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>＋</span>
-            <span>Tạo Đơn Tại Điểm Bán (POS)</span>
+            <span>Tạo Đơn Nhanh (POS)</span>
+          </button>
+          <Link
+            href="/admin/pos"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-600/30 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>🏪</span>
+            <span>Mở Quầy POS ↗</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* 4 Chỉ Số Vận Hành Ưu Tiên - Giúp Quản Trị Viên Biết Ngay Đơn Nào Cần Duyệt & Xử Lý */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: Cần Duyệt Gấp (PENDING) */}
+        <div
+          onClick={() => setStatusFilter("PENDING")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
+            statusFilter === "PENDING"
+              ? "bg-red-500/10 border-red-500 shadow-md ring-2 ring-red-400/50"
+              : "bg-white dark:bg-[#121a15] border-gray-200/80 dark:border-[#1f2e25] hover:border-red-400 hover:shadow-sm"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              1. CẦN DUYỆT GẤP ⚡
+            </span>
+            <span className="text-xl">🚨</span>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-red-600 dark:text-red-400 font-mono">
+              {operationalStats.pending}
+            </span>
+            <span className="text-xs font-bold text-gray-500">đơn chờ phê duyệt</span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">
+            {operationalStats.pending > 0
+              ? "🔥 Có đơn khách đặt mới! Bấm để duyệt ngay"
+              : "Đã duyệt hết, không có đơn chờ"}
+          </p>
+          {statusFilter === "PENDING" && (
+            <div className="absolute top-0 right-0 w-2 h-full bg-red-500" />
+          )}
+        </div>
+
+        {/* Card 2: Đang Sơ Chế Lạnh (PROCESSING) */}
+        <div
+          onClick={() => setStatusFilter("PROCESSING")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
+            statusFilter === "PROCESSING"
+              ? "bg-blue-500/10 border-blue-500 shadow-md ring-2 ring-blue-400/50"
+              : "bg-white dark:bg-[#121a15] border-gray-200/80 dark:border-[#1f2e25] hover:border-blue-400 hover:shadow-sm"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              2. ĐANG SƠ CHẾ & ĐÓNG GÓI
+            </span>
+            <span className="text-xl">🥩</span>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400 font-mono">
+              {operationalStats.processing}
+            </span>
+            <span className="text-xs font-bold text-gray-500">đơn đang chuẩn bị</span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">
+            Cắt thịt mát 0-4°C & đóng khay giao cam kết 2H
+          </p>
+          {statusFilter === "PROCESSING" && (
+            <div className="absolute top-0 right-0 w-2 h-full bg-blue-500" />
+          )}
+        </div>
+
+        {/* Card 3: Đang Giao Hỏa Tốc 2H (DELIVERING) */}
+        <div
+          onClick={() => setStatusFilter("DELIVERING")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
+            statusFilter === "DELIVERING"
+              ? "bg-purple-500/10 border-purple-500 shadow-md ring-2 ring-purple-400/50"
+              : "bg-white dark:bg-[#121a15] border-gray-200/80 dark:border-[#1f2e25] hover:border-purple-400 hover:shadow-sm"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              3. ĐANG GIAO HỎA TỐC 2H
+            </span>
+            <span className="text-xl">🚚</span>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 font-mono">
+              {operationalStats.delivering}
+            </span>
+            <span className="text-xs font-bold text-gray-500">đơn trên đường</span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">
+            Shipper đang vận chuyển trong thùng bảo ôn
+          </p>
+          {statusFilter === "DELIVERING" && (
+            <div className="absolute top-0 right-0 w-2 h-full bg-purple-500" />
+          )}
+        </div>
+
+        {/* Card 4: Hoàn Tất & Doanh Thu */}
+        <div
+          onClick={() => setStatusFilter("COMPLETED")}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
+            statusFilter === "COMPLETED"
+              ? "bg-emerald-500/10 border-emerald-500 shadow-md ring-2 ring-emerald-400/50"
+              : "bg-white dark:bg-[#121a15] border-gray-200/80 dark:border-[#1f2e25] hover:border-emerald-400 hover:shadow-sm"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              4. HOÀN TẤT & DOANH THU
+            </span>
+            <span className="text-xl">✅</span>
+          </div>
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+              {operationalStats.completed}
+            </span>
+            <span className="text-xs font-bold text-gray-500">đơn thành công</span>
+          </div>
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 line-clamp-1">
+            Tổng: {formatVnd(operationalStats.todayRevenue)}
+          </p>
+          {statusFilter === "COMPLETED" && (
+            <div className="absolute top-0 right-0 w-2 h-full bg-emerald-500" />
+          )}
+        </div>
+      </div>
+
+      {/* Cảnh Báo Khẩn Cấp Nếu Có Đơn Chờ Duyệt */}
+      {operationalStats.pending > 0 && statusFilter !== "PENDING" && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-600 to-amber-600 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-red-600/20 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl animate-bounce">🚨</span>
+            <div>
+              <p className="font-black text-sm">
+                Cảnh báo vận hành: Có {operationalStats.pending} đơn hàng mới đang CHỜ DUYỆT!
+              </p>
+              <p className="text-xs text-red-100 mt-0.5">
+                Đơn hàng online có cam kết giao trong 2 giờ. Cần phê duyệt ngay để bếp và kho lạnh cắt thịt!
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setStatusFilter("PENDING")}
+            className="px-4 py-2 rounded-xl bg-white text-red-600 font-black text-xs hover:bg-red-50 transition-all shadow-sm cursor-pointer whitespace-nowrap active:scale-95"
+          >
+            Lọc & Duyệt Ngay ⚡
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Filter Tabs & Search */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-[#121a15] border border-gray-200/80 dark:border-[#1f2e25] shadow-sm space-y-3">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-gray-100 dark:border-[#1f2e25]">
+      {/* Bộ Lọc Hiện Đại (Có DateRangePicker & Sắp Xếp Ưu Tiên) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121a15] border border-gray-200/80 dark:border-[#1f2e25] shadow-sm space-y-4">
+        {/* Status Tabs with Live Badges */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-gray-100 dark:border-[#1f2e25] scrollbar-none">
           {[
-            { id: "ALL", label: "Tất Cả Đơn" },
-            { id: "PENDING", label: "🔴 Chờ Duyệt" },
-            { id: "PROCESSING", label: "Đang Chuẩn Bị" },
-            { id: "DELIVERING", label: "Đang Giao 2H" },
-            { id: "COMPLETED", label: "Hoàn Thành" },
-            { id: "CANCELLED", label: "Đã Hủy" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                statusFilter === tab.id
-                  ? tab.id === "PENDING"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "bg-emerald-600 text-white shadow-sm"
-                  : "text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1f2e25]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search, Date Filter & Channel dropdown */}
-        <div className="flex flex-col gap-3 pt-1">
-          <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
-            <div className="flex-1 w-full relative">
-              <input
-                type="text"
-                placeholder="Tìm theo mã đơn (UBO-WEB-...), tên khách, SĐT..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-gray-200 dark:border-[#2b3d32] bg-gray-50 dark:bg-[#1a261f] focus:outline-none focus:border-emerald-500 text-gray-900 dark:text-white"
-              />
-              <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <select
-                value={channelFilter}
-                onChange={(e) => setChannelFilter(e.target.value)}
-                className="text-xs py-2 px-3 rounded-xl border border-gray-200 dark:border-[#2b3d32] bg-gray-50 dark:bg-[#1a261f] text-gray-700 dark:text-gray-300 focus:outline-none focus:border-emerald-500 font-medium"
+            { id: "ALL", label: "Tất Cả Đơn", count: orders.length, color: "gray" },
+            { id: "PENDING", label: "🚨 Chờ Duyệt Gấp", count: operationalStats.pending, color: "red" },
+            { id: "PROCESSING", label: "🥩 Đang Sơ Chế", count: operationalStats.processing, color: "blue" },
+            { id: "DELIVERING", label: "🚚 Đang Giao 2H", count: operationalStats.delivering, color: "purple" },
+            { id: "COMPLETED", label: "✅ Hoàn Thành", count: operationalStats.completed, color: "emerald" },
+            { id: "CANCELLED", label: "✕ Đã Hủy", count: operationalStats.cancelled, color: "gray" },
+          ].map((tab) => {
+            const isActive = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? tab.color === "red"
+                      ? "bg-red-600 text-white shadow-sm"
+                      : "bg-[#195329] text-white shadow-sm"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f2e25]"
+                }`}
               >
-                <option value="ALL">Mọi Kênh Bán Hàng</option>
-                <option value="WEB">🌐 Kênh Online (Giao 2H)</option>
-                <option value="POS">🏪 Kênh POS (Quầy Thu Ngân)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Date Filter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-gray-100 dark:border-[#1f2e25] text-xs">
-            <div className="flex items-center flex-wrap gap-1.5">
-              <span className="text-gray-400 font-bold mr-1 text-[11px]">📅 Lọc ngày:</span>
-              {[
-                { id: "ALL", label: "Tất Cả" },
-                { id: "TODAY", label: "Hôm Nay" },
-                { id: "7DAYS", label: "7 Ngày Qua" },
-                { id: "30DAYS", label: "30 Ngày Qua" },
-                { id: "CUSTOM", label: "Tùy Chọn Ngày" },
-              ].map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => {
-                    setDateFilterType(d.id as any);
-                    if (d.id !== "CUSTOM") {
-                      setStartDate("");
-                      setEndDate("");
-                    }
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                    dateFilterType === d.id
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-gray-100 dark:bg-[#1a261f] text-gray-600 dark:text-gray-300 hover:bg-gray-200"
+                <span>{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : tab.color === "red" && tab.count > 0
+                      ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 animate-pulse"
+                      : tab.color === "blue" && tab.count > 0
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                      : "bg-gray-200 dark:bg-zinc-800 text-gray-600 dark:text-gray-300"
                   }`}
                 >
-                  {d.label}
-                </button>
-              ))}
-            </div>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-            {/* Custom Date Range Inputs */}
-            {dateFilterType === "CUSTOM" && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-400 text-[11px]">Từ:</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="p-1 text-xs rounded-lg border border-gray-200 dark:border-[#2b3d32] bg-white dark:bg-[#121a15] text-gray-800 dark:text-gray-200"
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-400 text-[11px]">Đến:</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="p-1 text-xs rounded-lg border border-gray-200 dark:border-[#2b3d32] bg-white dark:bg-[#121a15] text-gray-800 dark:text-gray-200"
-                  />
-                </div>
-                {(startDate || endDate) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStartDate("");
-                      setEndDate("");
-                    }}
-                    className="text-[11px] text-red-500 hover:underline font-bold px-1"
-                  >
-                    ✕ Xóa
-                  </button>
-                )}
-              </div>
+        {/* Search, DateRangePicker, Channel, and Priority Sort */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+          {/* 1. Search Bar */}
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Tìm theo mã đơn (#UBO-...), tên khách, SĐT..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2.5 text-xs sm:text-sm rounded-xl border border-gray-200 dark:border-[#2b3d32] bg-gray-50 dark:bg-[#1a261f] focus:outline-none focus:border-emerald-500 text-gray-900 dark:text-white placeholder:text-gray-400 font-medium transition-all"
+            />
+            <span className="absolute left-3 top-3 text-gray-400 text-xs">🔍</span>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-2.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 dark:bg-zinc-700"
+              >
+                ✕
+              </button>
             )}
           </div>
+
+          {/* 2. DateRangePicker Component */}
+          <div className="w-full lg:w-auto">
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(start, end) => {
+                setStartDate(start);
+                setEndDate(end);
+              }}
+              onClear={() => {
+                setStartDate("");
+                setEndDate("");
+              }}
+              placeholder="Lọc khoảng thời gian..."
+              className="w-full lg:w-[260px]"
+            />
+          </div>
+
+          {/* 3. Kênh Bán Hàng */}
+          <select
+            value={channelFilter}
+            onChange={(e) => setChannelFilter(e.target.value)}
+            className="text-xs py-2.5 px-3 rounded-xl border border-gray-200 dark:border-[#2b3d32] bg-gray-50 dark:bg-[#1a261f] text-gray-700 dark:text-gray-300 focus:outline-none focus:border-emerald-500 font-bold cursor-pointer"
+          >
+            <option value="ALL">Mọi Kênh Bán Hàng</option>
+            <option value="WEB">🌐 Kênh Online (Giao 2H)</option>
+            <option value="POS">🏪 Kênh POS (Quầy Thu Ngân)</option>
+          </select>
+
+          {/* 4. Sắp Xếp Thông Minh (Mặc định: Ưu tiên đơn cần xử lý!) */}
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as any)}
+            className="text-xs py-2.5 px-3 rounded-xl border border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-bold focus:outline-none cursor-pointer"
+          >
+            <option value="PRIORITY">⚡ Ưu Tiên Cần Xử Lý</option>
+            <option value="NEWEST">⏱️ Mới Nhất Trước</option>
+            <option value="OLDEST">⏳ Cũ Nhất Trước</option>
+            <option value="AMOUNT_DESC">💰 Tổng Tiền Cao Nhất</option>
+          </select>
+
+          {/* 5. Nút Xóa Lọc */}
+          {(searchQuery || startDate || endDate || channelFilter !== "ALL" || statusFilter !== "ALL" || sortOrder !== "PRIORITY") && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setStartDate("");
+                setEndDate("");
+                setChannelFilter("ALL");
+                setStatusFilter("ALL");
+                setSortOrder("PRIORITY");
+              }}
+              className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline px-2 py-1 whitespace-nowrap cursor-pointer"
+            >
+              Đặt lại ✕
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-[#121a15] border border-gray-200/80 dark:border-[#1f2e25] shadow-sm overflow-hidden">
+      {/* Orders Table với Đánh Dấu Ưu Tiên Rõ Rệt */}
+      <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-[#121a15] border border-gray-200/80 dark:border-[#1f2e25] shadow-sm overflow-hidden space-y-4">
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>
+            Tìm thấy <strong>{filteredOrders.length}</strong> đơn hàng
+            {sortOrder === "PRIORITY" && (
+              <span className="ml-2 font-bold text-emerald-600 dark:text-emerald-400">
+                (Đang xếp theo: ⚡ Ưu tiên đơn Chờ Duyệt & Đang Sơ Chế lên đầu)
+              </span>
+            )}
+          </span>
+          <span className="text-[11px] text-gray-400">Trang {currentPage} / {totalPages}</span>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-gray-100 dark:border-[#1f2e25] text-gray-400 font-bold uppercase tracking-wider">
-                <th className="py-3 px-3">Mã Đơn / Ngày Đặt</th>
+                <th className="py-3 px-3">Mã Đơn / Thời Gian</th>
                 <th className="py-3 px-3">Khách Hàng & Địa Chỉ</th>
                 <th className="py-3 px-3">Kênh / Giao Hàng</th>
                 <th className="py-3 px-3">Tổng Tiền</th>
                 <th className="py-3 px-3">Thanh Toán</th>
-                <th className="py-3 px-3">Trạng Thái</th>
+                <th className="py-3 px-3">Trạng Thái & Hành Động</th>
                 <th className="py-3 px-3 text-right">Thao Tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-[#1f2e25]">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400">
-                    Đang tải dữ liệu đơn hàng...
+                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                    <span className="inline-block w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mb-2" />
+                    <p>Đang tải dữ liệu đơn hàng Ubofood...</p>
                   </td>
                 </tr>
               ) : paginatedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400">
-                    Không tìm thấy đơn hàng nào.
+                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                    Không tìm thấy đơn hàng nào phù hợp với bộ lọc.
                   </td>
                 </tr>
               ) : (
-                paginatedOrders.map((o) => (
-                  <tr
-                    key={o.id}
-                    className={`transition-colors ${
-                      o.orderStatus === "PENDING"
-                        ? "bg-red-50/40 dark:bg-red-950/20 hover:bg-red-50/70"
-                        : "hover:bg-gray-50/50 dark:hover:bg-[#1a261f]/50"
-                    }`}
-                  >
-                    <td className="py-3.5 px-3">
-                      <p className="font-bold text-gray-900 dark:text-white">{o.orderCode}</p>
-                      <p className="text-[11px] text-gray-400">{formatDate(o.createdAt)}</p>
-                      {o.isPrinted && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500">
-                          Đã in HĐ
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <p className="font-semibold text-gray-800 dark:text-gray-200">{o.customerName}</p>
-                      <p className="text-[11px] text-gray-400">{o.customerPhone}</p>
-                      {o.shippingAddress && (
-                        <p className="text-[10px] text-gray-400 line-clamp-1 max-w-xs">{o.shippingAddress}</p>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          o.channel === "WEB"
-                            ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-                            : "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
-                        }`}
-                      >
-                        {o.channel}
-                      </span>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                        {o.deliveryMethod === "FAST_2H" ? "⚡ Giao 2H" : o.deliveryMethod || "Mang về"}
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <p className="font-black text-emerald-600 dark:text-emerald-400">{formatVnd(o.finalAmount)}</p>
-                      {o.vouchers && o.vouchers.length > 0 && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400">
-                          Giảm voucher
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <span className="font-semibold text-gray-700 dark:text-gray-300">{o.paymentMethod}</span>
-                      {o.orderStatus === "CANCELLED" ? (
-                        <span className="block text-[10px] text-gray-400 font-medium">Đã hủy</span>
-                      ) : o.paymentMethod === "COD" && (o.orderStatus === "PENDING" || o.orderStatus === "PROCESSING") ? (
-                        <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-medium">Thu COD khi giao</span>
-                      ) : (
-                        <span className="block text-[10px] text-emerald-600 font-medium">Đã xác nhận</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {o.orderStatus === "PENDING" ? (
-                        /* Nút Đỏ Chờ Duyệt nhỏ gọn - Bấm vào là duyệt ngay */
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleQuickApprove(o)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all cursor-pointer hover:scale-105 active:scale-95"
-                            title="Đơn đang chờ duyệt! Ấn vào để duyệt đơn ngay"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                            <span>Chờ duyệt ⚡</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(o.id, "CANCELLED")}
-                            className="text-[10px] text-gray-400 hover:text-red-500 font-bold px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                            title="Hủy đơn này"
-                          >
-                            ✕
-                          </button>
+                paginatedOrders.map((o) => {
+                  const canonicalStatus = normalizeOrderStatus(o.orderStatus);
+                  const isPending = canonicalStatus === "PENDING";
+                  const isProcessing = canonicalStatus === "PROCESSING";
+                  const isDelivering = canonicalStatus === "DELIVERING";
+                  const isCompleted = canonicalStatus === "COMPLETED";
+
+                  return (
+                    <tr
+                      key={o.id}
+                      className={`transition-colors ${
+                        isPending
+                          ? "bg-red-50/50 dark:bg-red-950/25 hover:bg-red-100/50 border-l-4 border-l-red-500"
+                          : isProcessing
+                          ? "bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-100/40 border-l-4 border-l-blue-500"
+                          : isDelivering
+                          ? "bg-purple-50/25 dark:bg-purple-950/15 hover:bg-purple-100/30 border-l-4 border-l-purple-500"
+                          : isCompleted
+                          ? "border-l-4 border-l-emerald-500/60 hover:bg-gray-50/60 dark:hover:bg-[#1a261f]/50"
+                          : "border-l-4 border-l-gray-300 dark:border-l-gray-700 opacity-70 hover:bg-gray-50/50"
+                      }`}
+                    >
+                      {/* 1. Mã đơn & Thời gian */}
+                      <td className="py-3.5 px-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono font-black text-sm text-gray-900 dark:text-white">
+                            {o.orderCode}
+                          </span>
+                          {isPending && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white shadow-xs animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                              CẦN DUYỆT GẤP ⚡
+                            </span>
+                          )}
+                          {isProcessing && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
+                              🥩 ĐANG SƠ CHẾ (2H)
+                            </span>
+                          )}
+                          {isDelivering && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
+                              🚚 ĐANG GIAO HÀNG
+                            </span>
+                          )}
                         </div>
-                      ) : (
-                        <select
-                          value={o.orderStatus}
-                          onChange={(e) => handleUpdateStatus(o.id, e.target.value)}
-                          className={`text-xs font-bold py-1 px-2.5 rounded-full border-none focus:outline-none cursor-pointer ${
-                            o.orderStatus === "COMPLETED"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                              : o.orderStatus === "PROCESSING"
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
-                              : o.orderStatus === "DELIVERING"
-                              ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+                          <span>⏱️ {formatDate(o.createdAt)}</span>
+                          {o.isPrinted && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500">
+                              Đã in HĐ
+                            </span>
+                          )}
+                        </p>
+                      </td>
+
+                      {/* 2. Khách hàng & Địa chỉ */}
+                      <td className="py-3.5 px-3">
+                        <p className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm">
+                          {o.customerName}
+                        </p>
+                        <p className="text-[11px] text-gray-400 font-mono">{o.customerPhone || "Khách tại quầy"}</p>
+                        {o.shippingAddress && (
+                          <p className="text-[10px] text-gray-500 line-clamp-1 max-w-xs mt-0.5" title={o.shippingAddress}>
+                            📍 {o.shippingAddress}
+                          </p>
+                        )}
+                        {o.note && (
+                          <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium line-clamp-1 max-w-xs mt-0.5">
+                            📝 {o.note}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* 3. Kênh & Giao hàng */}
+                      <td className="py-3.5 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            o.channel === "WEB"
+                              ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                              : "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
                           }`}
                         >
-                          <option value="PROCESSING">Đang Xử Lý</option>
-                          <option value="DELIVERING">Đang Giao 2H</option>
-                          <option value="COMPLETED">Hoàn Thành</option>
-                          <option value="CANCELLED">Hủy Đơn</option>
-                        </select>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setViewingOrder(o)}
-                          className="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-[#1f2e25] dark:hover:bg-[#2c4033] font-semibold text-[11px]"
-                        >
-                          Chi Tiết
-                        </button>
-                        <button
-                          onClick={() => handlePrint(o)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px]"
-                        >
-                          🖨️ In
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {o.channel}
+                        </span>
+                        <p className="text-[10px] text-gray-600 dark:text-gray-300 mt-1 font-semibold">
+                          {o.deliveryMethod === "FAST_2H" ? "⚡ Giao 2H" : o.deliveryMethod || "Tại quầy"}
+                        </p>
+                      </td>
+
+                      {/* 4. Tổng tiền */}
+                      <td className="py-3.5 px-3">
+                        <p className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                          {formatVnd(o.finalAmount)}
+                        </p>
+                        {o.vouchers && o.vouchers.length > 0 && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400">
+                            Giảm voucher
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 5. Thanh toán */}
+                      <td className="py-3.5 px-3">
+                        <span className="font-bold text-gray-800 dark:text-gray-200 block text-xs">
+                          {o.paymentMethod}
+                        </span>
+                        {canonicalStatus === "CANCELLED" ? (
+                          <span className="block text-[10px] text-gray-400 font-medium">Đã hủy</span>
+                        ) : o.paymentMethod === "COD" && (isPending || isProcessing) ? (
+                          <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-bold">Thu COD khi giao</span>
+                        ) : (
+                          <span className="block text-[10px] text-emerald-600 font-bold">Đã thanh toán</span>
+                        )}
+                      </td>
+
+                      {/* 6. Trạng thái & Hành động ưu tiên */}
+                      <td className="py-3.5 px-3">
+                        {isPending ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickApprove(o)}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer animate-pulse whitespace-nowrap"
+                              title="Duyệt đơn ngay để chuyển sang khâu sơ chế!"
+                            >
+                              <span>⚡</span>
+                              <span>Duyệt Ngay</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(o.id, "CANCELLED")}
+                              className="text-xs text-gray-400 hover:text-red-600 font-bold px-1.5 py-1 rounded hover:bg-red-50 transition-colors"
+                              title="Hủy đơn này"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : isProcessing ? (
+                          <div className="flex flex-col gap-1 min-w-[130px]">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(o.id, "DELIVERING")}
+                              className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all hover:scale-102 active:scale-95 cursor-pointer whitespace-nowrap"
+                              title="Sơ chế xong -> Bắt đầu giao hàng 2H"
+                            >
+                              <span>🚚</span>
+                              <span>Giao Hàng 2H</span>
+                            </button>
+                            <select
+                              value={canonicalStatus}
+                              onChange={(e) => handleUpdateStatus(o.id, e.target.value)}
+                              className="text-[11px] font-bold py-0.5 px-1.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 focus:outline-none cursor-pointer"
+                            >
+                              <option value="PROCESSING">Đang Xử Lý</option>
+                              <option value="DELIVERING">Đang Giao 2H</option>
+                              <option value="COMPLETED">Hoàn Thành</option>
+                              <option value="CANCELLED">Hủy Đơn</option>
+                            </select>
+                          </div>
+                        ) : isDelivering ? (
+                          <div className="flex flex-col gap-1 min-w-[130px]">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(o.id, "COMPLETED")}
+                              className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition-all hover:scale-102 active:scale-95 cursor-pointer whitespace-nowrap"
+                              title="Khách đã nhận -> Hoàn tất đơn"
+                            >
+                              <span>✅</span>
+                              <span>Hoàn Tất Đơn</span>
+                            </button>
+                            <select
+                              value={canonicalStatus}
+                              onChange={(e) => handleUpdateStatus(o.id, e.target.value)}
+                              className="text-[11px] font-bold py-0.5 px-1.5 rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 focus:outline-none cursor-pointer"
+                            >
+                              <option value="DELIVERING">Đang Giao 2H</option>
+                              <option value="COMPLETED">Hoàn Thành</option>
+                              <option value="PROCESSING">Quay lại sơ chế</option>
+                              <option value="CANCELLED">Hủy Đơn</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <select
+                            value={canonicalStatus}
+                            onChange={(e) => handleUpdateStatus(o.id, e.target.value)}
+                            className={`text-xs font-bold py-1 px-2.5 rounded-full border-none focus:outline-none cursor-pointer ${
+                              getOrderStatusInfo(o.orderStatus, "admin").fullBadgeClass
+                            }`}
+                          >
+                            <option value="PENDING">Chờ Duyệt</option>
+                            <option value="PROCESSING">Đang Xử Lý</option>
+                            <option value="DELIVERING">Đang Giao 2H</option>
+                            <option value="COMPLETED">Hoàn Thành</option>
+                            <option value="CANCELLED">Hủy Đơn</option>
+                          </select>
+                        )}
+                      </td>
+
+                      {/* 7. Thao tác */}
+                      <td className="py-3.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setViewingOrder(o)}
+                            className="px-2.5 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-[#1f2e25] dark:hover:bg-[#2c4033] font-bold text-[11px] transition-colors cursor-pointer"
+                          >
+                            Chi Tiết
+                          </button>
+                          <button
+                            onClick={() => handlePrint(o)}
+                            className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] transition-colors cursor-pointer"
+                          >
+                            🖨️ In
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -712,37 +1074,66 @@ export default function AdminOrdersPage() {
       {/* POS In-Store Order Creation Modal (Enlarged & Spacious) */}
       {isCreateOrderOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+          className={`fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center overflow-hidden transition-all duration-200 ${
+            isPosModalFullscreen ? "p-0" : "p-2 sm:p-4"
+          }`}
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsCreateOrderOpen(false);
           }}
         >
-          <div className="w-[98vw] max-w-[1520px] h-[95vh] max-h-[960px] bg-white dark:bg-[#121a15] rounded-3xl border border-gray-200 dark:border-[#1f2e25] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-3.5 border-b border-gray-100 dark:border-[#1f2e25] bg-gray-50/50 dark:bg-[#16201a]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-600/30">
-                  🏪
+          <div
+            className={`bg-white dark:bg-[#121a15] border border-gray-200 dark:border-[#1f2e25] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${
+              isPosModalFullscreen
+                ? "w-screen h-screen max-w-none max-h-none rounded-none p-2 sm:p-3"
+                : "w-[98vw] max-w-[1520px] h-[95vh] max-h-[960px] rounded-3xl"
+            }`}
+          >
+            {/* Modal Header: Ẩn đi khi Full màn để "CHỈ HIỆN BÊN TRONG NÀY THÔI" */}
+            {!isPosModalFullscreen && (
+              <div className="flex items-center justify-between px-6 py-3.5 border-b border-gray-100 dark:border-[#1f2e25] bg-gray-50/50 dark:bg-[#16201a]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-600/30">
+                    🏪
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
+                      <span>Tạo Đơn Hàng Điểm Bán / Quầy Thu Ngân POS</span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        Ubofood Store
+                      </span>
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Chọn nhanh thực phẩm mát, lên giỏ hàng và xuất hóa đơn nhiệt trực tiếp tại điểm bán
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
-                    <span>Tạo Đơn Hàng Điểm Bán / Quầy Thu Ngân POS</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      Ubofood Store
-                    </span>
-                  </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Chọn nhanh thực phẩm mát, lên giỏ hàng và xuất hóa đơn nhiệt trực tiếp tại điểm bán
-                  </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPosModalFullscreen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    title="Toàn màn hình - Chỉ hiện quầy thu ngân bên trong"
+                  >
+                    <span>⛶</span>
+                    <span>Full màn</span>
+                  </button>
+                  <Link
+                    href="/admin/pos"
+                    className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-colors flex items-center gap-1.5 border border-emerald-200/60 dark:border-emerald-800/60"
+                    title="Mở toàn màn hình trong trang riêng"
+                  >
+                    <span>↗</span>
+                    <span>Mở trang riêng</span>
+                  </Link>
+                  <button
+                    onClick={() => setIsCreateOrderOpen(false)}
+                    className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-[#1f2e25] dark:hover:bg-[#2c4033] flex items-center justify-center text-gray-500 font-bold transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => setIsCreateOrderOpen(false)}
-                className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-[#1f2e25] dark:hover:bg-[#2c4033] flex items-center justify-center text-gray-500 font-bold transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+            )}
 
             {/* Modal Body - 2 Columns (50% Sản phẩm / 50% Thanh Toán To Rõ) */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
@@ -787,6 +1178,21 @@ export default function AdminOrdersPage() {
                       <option value="NAME_ZA">🔤 Tên: Z → A</option>
                     </select>
                   </div>
+
+                  {/* Nút Full màn trực tiếp bên trong toolbar */}
+                  <button
+                    type="button"
+                    onClick={() => setIsPosModalFullscreen(!isPosModalFullscreen)}
+                    className={`px-3 py-2.5 text-xs font-black rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap active:scale-95 ${
+                      isPosModalFullscreen
+                        ? "bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+                        : "bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white"
+                    }`}
+                    title={isPosModalFullscreen ? "Thoát toàn màn hình (Esc)" : "Toàn màn hình - Chỉ hiện bên trong này"}
+                  >
+                    <span className="text-sm">{isPosModalFullscreen ? "🗗" : "⛶"}</span>
+                    <span>{isPosModalFullscreen ? "Thu nhỏ" : "Full màn"}</span>
+                  </button>
                 </div>
 
                 {/* Category Pills Strip - Cuộn ngang độc lập, không làm trôi nút sort */}
@@ -889,14 +1295,27 @@ export default function AdminOrdersPage() {
                         {posCart.reduce((sum, it) => sum + it.quantity, 0)} món
                       </span>
                     </div>
-                    {posCart.length > 0 && (
-                      <button
-                        onClick={() => setPosCart([])}
-                        className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
-                      >
-                        Xóa tất cả
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {posCart.length > 0 && (
+                        <button
+                          onClick={() => setPosCart([])}
+                          className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                        >
+                          Xóa tất cả
+                        </button>
+                      )}
+                      {isPosModalFullscreen && (
+                        <button
+                          type="button"
+                          onClick={() => setIsPosModalFullscreen(false)}
+                          className="px-2.5 py-1 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-gray-700 dark:text-gray-200 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                          title="Thoát full màn (Esc)"
+                        >
+                          <span>🗗</span>
+                          <span>Thoát</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Cart Items List */}
@@ -1122,9 +1541,18 @@ export default function AdminOrdersPage() {
                   📦
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-gray-900 dark:text-white">
-                    Chi Tiết Đơn Hàng #{viewingOrder.orderCode}
-                  </h3>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                      Chi Tiết Đơn Hàng #{viewingOrder.orderCode}
+                    </h3>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        getOrderStatusInfo(viewingOrder.orderStatus, "admin").fullBadgeClass
+                      }`}
+                    >
+                      {getOrderStatusInfo(viewingOrder.orderStatus, "admin").adminLabel}
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5">Thời gian đặt: {formatDate(viewingOrder.createdAt)}</p>
                 </div>
               </div>
@@ -1135,6 +1563,54 @@ export default function AdminOrdersPage() {
                 ✕
               </button>
             </div>
+
+            {/* Progress Stepper in Admin Detail Modal */}
+            {normalizeOrderStatus(viewingOrder.orderStatus) !== "CANCELLED" && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-[#195329] dark:text-emerald-300">
+                    Tiến độ xử lý đơn hàng
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-500">
+                    Trạng thái: {getOrderStatusInfo(viewingOrder.orderStatus, "admin").adminLabel}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center text-[10px] sm:text-xs">
+                  {[
+                    { step: 1, title: "Đã đặt hàng", icon: "📝" },
+                    { step: 2, title: "Sơ chế lạnh", icon: "🥩" },
+                    { step: 3, title: "Đang giao 2H", icon: "🚚" },
+                    { step: 4, title: "Hoàn tất", icon: "✅" },
+                  ].map((s) => {
+                    const currentStep = getOrderStatusInfo(viewingOrder.orderStatus).step;
+                    const isDone = currentStep >= s.step;
+                    const isCurrent = currentStep === s.step;
+                    return (
+                      <div key={s.step} className="flex flex-col items-center">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs mb-1 transition-all ${
+                            isDone
+                              ? "bg-[#195329] text-white shadow-xs"
+                              : "bg-gray-200 dark:bg-zinc-800 text-gray-400"
+                          } ${isCurrent ? "ring-2 ring-emerald-400 ring-offset-1" : ""}`}
+                        >
+                          {isDone ? s.icon : s.step}
+                        </div>
+                        <span
+                          className={`font-semibold text-[11px] leading-tight ${
+                            isDone
+                              ? "text-[#195329] dark:text-emerald-300"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {s.title}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Customer & Delivery Info - 2 Columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-[#1a261f] border border-gray-100 dark:border-[#2b3d32] text-xs sm:text-sm">
@@ -1216,20 +1692,36 @@ export default function AdminOrdersPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-[#1f2e25]">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100 dark:border-[#1f2e25]">
+              <div className="flex flex-wrap items-center gap-2.5">
                 {viewingOrder.orderStatus === "PENDING" && (
                   <button
                     onClick={() => handleQuickApprove(viewingOrder)}
-                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-red-600/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-red-600/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <span>⚡</span>
                     <span>Duyệt Đơn Này</span>
                   </button>
                 )}
+
+                <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#1a261f] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#2b3d32]">
+                  <span className="text-[11px] font-bold text-gray-500">Đổi trạng thái:</span>
+                  <select
+                    value={normalizeOrderStatus(viewingOrder.orderStatus)}
+                    onChange={(e) => handleUpdateStatus(viewingOrder.id, e.target.value)}
+                    className="text-xs font-bold bg-transparent text-gray-800 dark:text-gray-200 border-none focus:outline-none cursor-pointer"
+                  >
+                    <option value="PENDING">Chờ Duyệt</option>
+                    <option value="PROCESSING">Đang Xử Lý</option>
+                    <option value="DELIVERING">Đang Giao 2H</option>
+                    <option value="COMPLETED">Hoàn Thành</option>
+                    <option value="CANCELLED">Hủy Đơn</option>
+                  </select>
+                </div>
+
                 <button
                   onClick={() => handlePrint(viewingOrder)}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer active:scale-95"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer active:scale-95"
                 >
                   <span>🖨️</span>
                   <span>In Hóa Đơn Bán Hàng</span>
@@ -1237,7 +1729,7 @@ export default function AdminOrdersPage() {
               </div>
               <button
                 onClick={() => setViewingOrder(null)}
-                className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-[#2b3d32] text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f2e25] cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-[#2b3d32] text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1f2e25] cursor-pointer"
               >
                 Đóng
               </button>

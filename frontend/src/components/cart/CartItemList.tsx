@@ -40,20 +40,20 @@ export default function CartItemList({
     return new Intl.NumberFormat("vi-VN").format(price);
   };
 
-  // Cross-sell items
+  // Cross-sell items (đồng bộ ID thực từ database)
   const extras = [
     {
-      id: 901,
-      name: "Đậu Mơ Tươi Quê Mình (Bìa 3 miếng)",
+      id: 11,
+      name: "Đậu Mơ Tươi Ngon Quê Mình",
       price: 20800,
-      packWeight: "Bìa 3 miếng",
+      packWeight: "Hộp 500g",
       image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80",
     },
     {
-      id: 902,
-      name: "Cải Bó Xôi Thủy Canh (Gói 300g)",
+      id: 15,
+      name: "Cải Bó Xôi Thủy Canh VietGAP",
       price: 28000,
-      packWeight: "Gói 300g",
+      packWeight: "Túi 500g",
       image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=400&q=80",
     },
   ];

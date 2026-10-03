@@ -15,5 +15,7 @@ public interface ProductService {
     List<ProductResponseDto> getProductsByCategorySlug(String categorySlug);
     List<ProductResponseDto> searchProducts(String keyword);
     List<ProductResponseDto> getAllActiveProducts();
+    List<ProductResponseDto> getFeaturedProducts();
+    List<ProductResponseDto> getLowStockProducts(int threshold);
     void deleteProduct(Long id);
 }

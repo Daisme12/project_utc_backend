@@ -21,6 +21,7 @@ public record ProductResponseDto(
     BigDecimal rating,
     Integer reviewCount,
     String imageUrl,
+    Boolean isFeatured,
     Boolean isActive,
     LocalDateTime createdAt
 ) {}

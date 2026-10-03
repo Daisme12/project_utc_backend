@@ -9,6 +9,7 @@ import { useCart } from "@/context/CartContext";
 import { logoutAction, checkAuthAction } from "@/actions/auth";
 import { CategoryItem } from "@/types/product";
 import { storeService } from "@/services/storeService";
+import { hasAdminAccess, getRoleBadgeInfo } from "@/lib/permissions";
 
 export default function Header() {
   const router = useRouter();
@@ -580,9 +581,17 @@ export default function Header() {
                     <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
                       {user?.fullName || "Nguyễn Văn A"}
                     </p>
-                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-[10px] font-semibold text-[#195329] dark:text-emerald-300">
-                      Thành viên Ubofood
-                    </span>
+                    {(() => {
+                      const roleInfo = getRoleBadgeInfo(user);
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${roleInfo.badgeBg}`}
+                        >
+                          <span>{roleInfo.icon}</span>
+                          <span>{roleInfo.label}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="py-1 text-xs text-gray-700 dark:text-gray-300">
@@ -620,14 +629,17 @@ export default function Header() {
                       <span>Đơn hàng của tôi</span>
                     </Link>
 
-                    <Link
-                      href="/admin"
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 hover:bg-emerald-50 dark:hover:bg-zinc-800 text-emerald-700 dark:text-emerald-400 font-bold transition-colors"
-                    >
-                      <span className="text-sm">⚡</span>
-                      <span>Hệ Thống Quản Trị (Admin)</span>
-                    </Link>
+                    {/* Phân quyền: CHỈ hiển thị Quản Trị Hệ Thống nếu là ADMIN hoặc CASHIER */}
+                    {hasAdminAccess(user) && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 hover:bg-emerald-50 dark:hover:bg-zinc-800 text-emerald-700 dark:text-emerald-400 font-bold transition-colors"
+                      >
+                        <span className="text-sm">⚡</span>
+                        <span>Hệ Thống Quản Trị (Admin)</span>
+                      </Link>
+                    )}
                   </div>
 
                   <div className="border-t border-gray-100 dark:border-zinc-800 pt-1 mt-1">

@@ -6,13 +6,47 @@ import { toast } from "sonner";
 export default function DeliveryAddressCard() {
   const [isEditing, setIsEditing] = useState(false);
   const [addressData, setAddressData] = useState({
-    name: "Nguyễn Minh Châu",
-    tag: "Văn phòng",
-    phone: "0989 123 456",
-    address: "Tầng 18, Tòa Keangnam Landmark 72, Đường Phạm Hùng, Phường Mễ Trì, Quận Nam Từ Liêm, TP. Hà Nội",
-    hubDistance: "1.8 km",
-    deliveryInstruction: "Gửi bảo vệ sảnh A, gọi điện trước khi đến 5 phút để bảo quản tủ lạnh ngay.",
+    name: "Khách hàng",
+    tag: "Nhà riêng",
+    phone: "Chưa cập nhật SĐT",
+    address: "Số 3 Cầu Giấy, Láng Thượng, Đống Đa, Hà Nội",
+    hubDistance: "1.2 km",
+    deliveryInstruction: "Giao tận tay trong túi bảo quản giữ nhiệt 0 - 4°C chuyên dụng.",
   });
+
+  // Tự động nạp thông tin người dùng đang đăng nhập và đồng bộ khi user cập nhật
+  React.useEffect(() => {
+    const loadUserAddress = () => {
+      try {
+        const uStr = localStorage.getItem("user");
+        if (uStr) {
+          const u = JSON.parse(uStr);
+          setAddressData((prev) => ({
+            ...prev,
+            name: u.fullName || u.username || prev.name,
+            phone: u.phone || prev.phone,
+            address: u.address || u.shippingAddress || prev.address,
+          }));
+        }
+      } catch {}
+    };
+
+    loadUserAddress();
+
+    const handleUserUpdated = (e: any) => {
+      if (e.detail) {
+        setAddressData((prev) => ({
+          ...prev,
+          name: e.detail.fullName || prev.name,
+          phone: e.detail.phone || prev.phone,
+          address: e.detail.address || e.detail.shippingAddress || prev.address,
+        }));
+      }
+    };
+
+    window.addEventListener("userUpdated", handleUserUpdated);
+    return () => window.removeEventListener("userUpdated", handleUserUpdated);
+  }, []);
 
   const [tempData, setTempData] = useState({ ...addressData });
 
@@ -37,7 +71,7 @@ export default function DeliveryAddressCard() {
             setTempData({ ...addressData });
             setIsEditing(true);
           }}
-          className="text-xs font-bold text-[#195329] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+          className="text-sm font-bold text-[#195329] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
         >
           <span>✏️</span>
           <span>Thay đổi địa chỉ</span>

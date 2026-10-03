@@ -1,179 +1,63 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import ProductCard, { MeatProduct } from "./ProductCard";
 import { storeService, mapProductToMeatProduct } from "@/services/storeService";
 
 export default function FeaturedProducts() {
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [apiProducts, setApiProducts] = useState<MeatProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const itemsPerPage = 10; // 5 sản phẩm tương ứng với 1 hàng đầy đủ trên desktop (lg:grid-cols-5)
+
   useEffect(() => {
     let isMounted = true;
-    storeService.getProducts().then((res) => {
-      if (isMounted && res && res.length > 0) {
-        setApiProducts(res.map(mapProductToMeatProduct));
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (isMounted) setLoading(false);
-    });
+    setLoading(true);
+    storeService.getProducts()
+      .then((res) => {
+        if (isMounted) {
+          if (res && res.length > 0) {
+            setApiProducts(res.map(mapProductToMeatProduct));
+          }
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Lỗi tải sản phẩm từ database:", err);
+        if (isMounted) setLoading(false);
+      });
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const tabs = [
-    { id: "all", label: `Tất cả sản phẩm (${apiProducts.length || 24})` },
-    { id: "sale", label: "🔥 Săn Sale Giờ Vàng" },
-    { id: "small", label: "Khay nhỏ 300g" },
-    { id: "large", label: "Khay lớn 500g" },
-    { id: "best", label: "Thịt mát bán chạy" },
-    { id: "combo", label: "Ưu đãi combo" },
-  ];
+  // Lọc sản phẩm theo từ khóa tìm kiếm trực tiếp từ database
+  const filteredProducts = apiProducts.filter((p) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      (p.tagBadge && p.tagBadge.toLowerCase().includes(q)) ||
+      (p.packWeight && p.packWeight.toLowerCase().includes(q)) ||
+      (p.category && p.category.toLowerCase().includes(q))
+    );
+  });
 
-  const defaultProducts: MeatProduct[] = [
-    {
-      id: 1,
-      name: "Sườn Thăn Heo Truyền Thống",
-      category: "small",
-      discountBadge: "-8%",
-      tagBadge: "VietGAP",
-      packWeight: "Hộp 300g",
-      stockStatus: "Còn 12 khay sáng",
-      unitPrice: "Đơn giá: 238.700 đ/kg",
-      price: 71600,
-      originalPrice: 78000,
-      image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 2,
-      name: "Ba Chỉ Heo Truyền Thống",
-      category: "best",
-      discountBadge: "-9%",
-      tagBadge: "Bán chạy #1",
-      packWeight: "Hộp 300g",
-      stockStatus: "Còn 18 khay",
-      unitPrice: "Đơn giá: 224.700 đ/kg",
-      price: 67400,
-      originalPrice: 74000,
-      image: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 3,
-      name: "Thịt Xay Heo Truyền Thống",
-      category: "small",
-      tagBadge: "Tiện lợi",
-      packWeight: "Hộp 300g",
-      stockStatus: "Còn 21 khay",
-      unitPrice: "Đơn giá: 179.000 đ/kg",
-      price: 53700,
-      image: "https://images.unsplash.com/photo-1588347818036-558601350947?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 4,
-      name: "Móng Giò Trước Heo",
-      category: "small",
-      tagBadge: "Tươi Mới Sáng",
-      packWeight: "Hộp 300g",
-      stockStatus: "Còn 9 khay",
-      unitPrice: "Đơn giá: 145.000 đ/kg",
-      price: 43500,
-      image: "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 5,
-      name: "Thăn Bò Sạch Ubomeat",
-      category: "best",
-      tagBadge: "Thượng Hạng",
-      packWeight: "Hộp 300g",
-      stockStatus: "Còn 15 khay",
-      unitPrice: "Đơn giá: 349.700 đ/kg",
-      price: 104900,
-      image: "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 6,
-      name: "Nạc Vai Heo Truyền Thống",
-      category: "small",
-      tagBadge: "Mổ Sớm",
-      packWeight: "Khay 300g",
-      stockStatus: "Còn 31 khay",
-      unitPrice: "Đơn giá: 190.300 đ/kg",
-      price: 57100,
-      image: "https://images.unsplash.com/photo-1602470520998-f4a52199a3d6?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 7,
-      name: "Nạc Dăm Heo Truyền Thống",
-      category: "small",
-      discountBadge: "-6%",
-      tagBadge: "Ưa chuộng",
-      packWeight: "Khay 300g",
-      stockStatus: "Còn 9 khay",
-      unitPrice: "Đơn giá: 202.600 đ/kg",
-      price: 60800,
-      originalPrice: 65000,
-      image: "https://images.unsplash.com/photo-1615937657715-bc7b4b7962c1?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 8,
-      name: "Trứng Gà Ta Thuần Việt",
-      category: "combo",
-      tagBadge: "Lòng đỏ đậm vị",
-      packWeight: "Hộp 10 quả",
-      stockStatus: "Thu hoạch rạng sáng",
-      unitPrice: "Đơn giá: 4.200 đ/quả",
-      price: 42000,
-      image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 9,
-      name: "Đậu Mơ Tươi Ngon Quê Mình",
-      category: "small",
-      tagBadge: "Thủ Công 100%",
-      packWeight: "Hộp 300g",
-      stockStatus: "Làm mới mỗi 4 giờ",
-      unitPrice: "Đơn giá: 41.600 đ/kg",
-      price: 20800,
-      image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-      id: 10,
-      name: "Chân Gà Rút Xương Ubomeat",
-      category: "combo",
-      tagBadge: "Ăn Liền 1 Đổi 1",
-      packWeight: "Khay 300g",
-      stockStatus: "Còn 18 khay",
-      unitPrice: "Đơn giá: 133.400 đ/kg",
-      price: 66700,
-      image: "https://images.unsplash.com/photo-1587593810167-a84920ea0781?auto=format&fit=crop&w=600&q=80",
-    },
-  ];
-
-  const activeProducts = apiProducts.length > 0 ? apiProducts : defaultProducts;
-
-  const filteredProducts =
-    activeTab === "all"
-      ? activeProducts
-      : activeTab === "sale"
-      ? activeProducts.filter(
-          (p) =>
-            Boolean(p.discountBadge) ||
-            Boolean(p.originalPrice) ||
-            p.category === "combo"
-        )
-      : activeProducts.filter(
-          (p) =>
-            p.category === activeTab ||
-            (activeTab === "small" && p.packWeight.includes("300g"))
-        );
+  // Tính toán phân trang
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const displayedProducts = filteredProducts.slice(
+    (safeCurrentPage - 1) * itemsPerPage,
+    safeCurrentPage * itemsPerPage
+  );
 
   return (
     <section id="meat" className="mt-10 sm:mt-12">
       {/* Section Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-gray-100 dark:border-zinc-800">
         <div>
           <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#195329] dark:text-emerald-400 tracking-wider uppercase">
             <span>❄️</span>
@@ -184,30 +68,155 @@ export default function FeaturedProducts() {
           </h2>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                activeTab === tab.id
-                  ? "bg-[#195329] text-white shadow-xs"
-                  : "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700"
-              }`}
+        {/* Thanh Search & Nút Xem tất cả sản phẩm (thay thế nút bộ lọc) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+          {/* Thanh Search */}
+          <div className="relative flex-1 sm:w-64 md:w-72">
+            <svg
+              className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              {tab.label}
-            </button>
-          ))}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Tìm kiếm thịt, thực phẩm tươi..."
+              className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm rounded-full border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#195329] focus:border-transparent transition-all shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold"
+                aria-label="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Nút Xem tất cả sản phẩm */}
+          <Link
+            href="/products"
+            className="px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap bg-[#195329] hover:bg-[#134220] text-white transition-all shrink-0 inline-flex items-center justify-center gap-1.5 shadow-sm hover:shadow-md cursor-pointer group"
+          >
+            <span>Xem tất cả sản phẩm</span>
+            <span className="group-hover:translate-x-1 transition-transform">→</span>
+          </Link>
         </div>
       </div>
 
       {/* 5-Column Product Grid */}
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-        {filteredProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[1, 2, 3, 4, 5].map((idx) => (
+            <div
+              key={idx}
+              className="bg-white dark:bg-zinc-900 rounded-2xl p-3 border border-gray-100 dark:border-zinc-800 animate-pulse space-y-3"
+            >
+              <div className="w-full aspect-square bg-gray-200 dark:bg-zinc-800 rounded-xl" />
+              <div className="h-4 bg-gray-200 dark:bg-zinc-800 rounded w-3/4" />
+              <div className="h-3 bg-gray-200 dark:bg-zinc-800 rounded w-1/2" />
+              <div className="h-5 bg-gray-200 dark:bg-zinc-800 rounded w-2/3" />
+            </div>
+          ))}
+        </div>
+      ) : displayedProducts.length > 0 ? (
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {displayedProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-8 py-12 text-center bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800">
+          <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+            {searchQuery
+              ? `Không tìm thấy sản phẩm nào phù hợp với từ khóa "${searchQuery}"`
+              : "Chưa có sản phẩm nào trong hệ thống."}
+          </p>
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setCurrentPage(1);
+              }}
+              className="mt-3 px-4 py-1.5 text-xs font-bold text-[#195329] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+            >
+              Xóa tìm kiếm
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Phân Trang Cho Đoạn Này */}
+      {!loading && totalPages > 1 && (
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100 dark:border-zinc-800">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Hiển thị{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {(safeCurrentPage - 1) * itemsPerPage + 1} -{" "}
+              {Math.min(safeCurrentPage * itemsPerPage, filteredProducts.length)}
+            </span>{" "}
+            trên tổng số{" "}
+            <span className="font-semibold text-[#195329] dark:text-emerald-400">
+              {filteredProducts.length}
+            </span>{" "}
+            sản phẩm
+          </p>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage === 1}
+              aria-label="Trang trước"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer font-bold text-gray-700 dark:text-gray-300 transition-colors text-xs"
+            >
+              ‹
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                type="button"
+                onClick={() => setCurrentPage(pageNum)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                  safeCurrentPage === pageNum
+                    ? "bg-[#195329] text-white shadow-xs"
+                    : "border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage === totalPages}
+              aria-label="Trang sau"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer font-bold text-gray-700 dark:text-gray-300 transition-colors text-xs"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

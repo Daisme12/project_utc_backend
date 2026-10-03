@@ -43,5 +43,7 @@ public record ProductRequestDto(
 
     String imageUrl,
 
+    Boolean isFeatured,
+
     Boolean isActive
 ) {}

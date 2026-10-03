@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -108,6 +109,24 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getAllActiveProducts() {
         return productRepository.findByIsActiveTrue().stream()
+                .map(productMapper::toResponseDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getFeaturedProducts() {
+        return productRepository.findByIsFeaturedTrueAndIsActiveTrue().stream()
+                .map(productMapper::toResponseDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getLowStockProducts(int threshold) {
+        return productRepository.findByIsActiveTrueAndStockQuantityLessThanOrderByStockQuantityAsc(
+                BigDecimal.valueOf(threshold)
+        ).stream()
                 .map(productMapper::toResponseDto)
                 .toList();
     }

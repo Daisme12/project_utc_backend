@@ -68,6 +68,9 @@ public class Product {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "is_featured")
+    private Boolean isFeatured;
+
     @Column(name = "is_active")
     private Boolean isActive;
 
@@ -94,6 +97,9 @@ public class Product {
         }
         if (this.reviewCount == null) {
             this.reviewCount = 0;
+        }
+        if (this.isFeatured == null) {
+            this.isFeatured = false;
         }
     }
 

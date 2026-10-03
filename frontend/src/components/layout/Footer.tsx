@@ -46,27 +46,27 @@ export default function Footer() {
             </h3>
             <ul className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
               <li>
-                <Link href="#cold-chain" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
+                <Link href="/chinh-sach/chuoi-lanh" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
                   Quy trình bảo quản chuỗi lạnh 0-4°C
                 </Link>
               </li>
               <li>
-                <Link href="#shipping" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
+                <Link href="/chinh-sach/giao-hang" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
                   Chính sách giao hàng siêu tốc 2H
                 </Link>
               </li>
               <li>
-                <Link href="#cert" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
+                <Link href="/chinh-sach/kiem-nghiem-chat-luong" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
                   Quy chuẩn kiểm nghiệm VietGAP & GlobalGAP
                 </Link>
               </li>
               <li>
-                <Link href="#refund" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
+                <Link href="/chinh-sach/doi-tra" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
                   Chính sách đổi trả trong 24 giờ
                 </Link>
               </li>
               <li>
-                <Link href="#vnpay" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
+                <Link href="/chinh-sach/huong-dan-thanh-toan" className="hover:text-[#195329] dark:hover:text-emerald-400 transition-colors">
                   Hướng dẫn đặt hàng & thanh toán VNPAY
                 </Link>
               </li>
@@ -84,7 +84,7 @@ export default function Footer() {
               <li>Ubofood Royal City - Thanh Xuân</li>
               <li>Ubofood Ciputra - Tây Hồ</li>
               <li className="pt-1">
-                <Link href="#stores" className="font-bold text-[#195329] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
+                <Link href="/he-thong-cua-hang" className="font-bold text-[#195329] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
                   <span>Xem toàn bộ 18 điểm bán</span>
                   <span>→</span>
                 </Link>

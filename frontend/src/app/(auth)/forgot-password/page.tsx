@@ -3,9 +3,9 @@ import Link from "next/link";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Quên mật khẩu | AgriMarket",
+  title: "Quên mật khẩu | Ubofood",
   description:
-    "Khôi phục mật khẩu tài khoản AgriMarket bằng mã xác thực OTP gửi về email của bạn.",
+    "Khôi phục mật khẩu tài khoản Ubofood bằng mã xác thực OTP gửi về email của bạn.",
 };
 
 export default function ForgotPasswordPage() {

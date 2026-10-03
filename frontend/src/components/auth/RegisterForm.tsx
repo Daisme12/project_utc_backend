@@ -313,7 +313,7 @@ export default function RegisterForm() {
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
           ) : (
             <>
-              <span>Đăng Ký Vào AgriMarket</span>
+              <span>Đăng Ký Vào Ubofood</span>
               <span className="text-base leading-none font-normal">→</span>
             </>
           )}

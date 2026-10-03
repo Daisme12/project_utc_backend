@@ -8,6 +8,7 @@ interface OrderSuccessModalProps {
   orderCode: string;
   totalAmount: number;
   deliveryTime: string;
+  paymentMethod?: string;
   onClose: () => void;
 }
 
@@ -16,12 +17,24 @@ export default function OrderSuccessModal({
   orderCode,
   totalAmount,
   deliveryTime,
+  paymentMethod = "COD",
   onClose,
 }: OrderSuccessModalProps) {
   if (!isOpen) return null;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN").format(price);
+  };
+
+  const getPaymentMethodDisplay = () => {
+    switch (paymentMethod.toUpperCase()) {
+      case "VNPAY":
+        return "VNPAY-QR (Đã xác nhận thanh toán)";
+      case "CARD":
+        return "Thẻ quốc tế Visa/MasterCard (Đã ghi nhận)";
+      default:
+        return "Tiền mặt khi nhận hàng (COD)";
+    }
   };
 
   return (
@@ -40,12 +53,18 @@ export default function OrderSuccessModal({
             Cảm ơn bạn đã tin chọn Ubofood!
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            Mã đơn hàng: <strong className="text-gray-900 dark:text-white">#{orderCode}</strong>
+            Mã đơn hàng: <strong className="text-gray-900 dark:text-white font-mono">#{orderCode}</strong>
           </p>
         </div>
 
         {/* Details Box */}
         <div className="p-4 rounded-2xl bg-[#f2faf3] dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 text-left text-xs space-y-2">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Hình thức thanh toán:</span>
+            <span className="font-extrabold text-[#195329] dark:text-emerald-300">
+              {getPaymentMethodDisplay()}
+            </span>
+          </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Dự kiến giao hàng:</span>
             <span className="font-bold text-[#195329] dark:text-emerald-300">

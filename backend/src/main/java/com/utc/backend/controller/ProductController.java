@@ -70,6 +70,19 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(products, "Tìm kiếm sản phẩm thành công"));
     }
 
+    @GetMapping("/featured")
+    public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getFeaturedProducts() {
+        List<ProductResponseDto> products = productService.getFeaturedProducts();
+        return ResponseEntity.ok(ApiResponse.success(products, "Lấy danh sách sản phẩm nổi bật thành công"));
+    }
+
+    @GetMapping("/low-stock")
+    public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getLowStockProducts(
+            @RequestParam(value = "threshold", defaultValue = "60") int threshold) {
+        List<ProductResponseDto> products = productService.getLowStockProducts(threshold);
+        return ResponseEntity.ok(ApiResponse.success(products, "Lấy danh sách sản phẩm sắp hết hàng thành công"));
+    }
+
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getAllActiveProducts() {
         List<ProductResponseDto> products = productService.getAllActiveProducts();

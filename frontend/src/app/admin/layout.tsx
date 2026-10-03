@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { adminService } from "@/services/adminService";
+import { getUserRole, hasAdminAccess, getRoleBadgeInfo } from "@/lib/permissions";
 
 interface NavItem {
   name: string;
@@ -15,7 +16,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { name: "Tổng Quan", href: "/admin", icon: "📊" },
-  { name: "Đơn Hàng & POS", href: "/admin/orders", icon: "📦" },
+  { name: "Quầy Thu Ngân POS", href: "/admin/pos", icon: "🏪" },
+  { name: "Đơn Hàng", href: "/admin/orders", icon: "📦" },
   { name: "Sản Phẩm", href: "/admin/products", icon: "🥩", badge: "16" },
   { name: "Danh Mục", href: "/admin/categories", icon: "🏷️" },
   { name: "Nhập Kho Lô Mát", href: "/admin/goods-receipts", icon: "📥" },
@@ -30,6 +32,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const syncUser = () => {
+      try {
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          setCurrentUser(JSON.parse(stored));
+        } else {
+          setCurrentUser(null);
+        }
+      } catch {
+        setCurrentUser(null);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    syncUser();
+    window.addEventListener("auth-change", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("auth-change", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   const handleResetAllData = () => {
     setIsRefreshing(true);
@@ -54,6 +83,125 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setIsCollapsed((prev) => !prev);
     }
   };
+
+  // PHÂN QUYỀN: Chặn truy cập nếu không có quyền ADMIN hoặc CASHIER
+  if (authChecked && (!currentUser || !hasAdminAccess(currentUser))) {
+    const roleInfo = getRoleBadgeInfo(currentUser);
+    return (
+      <div className="min-h-screen bg-[#0c120e] text-white flex flex-col items-center justify-center p-4 sm:p-6 text-center">
+        <div className="max-w-md w-full bg-[#16201a] border border-[#2b3d32] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/40 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-red-500/10">
+            🛑
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-black tracking-widest text-red-400 uppercase">
+              403 • Truy Cập Bị Giới Hạn
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-white">
+              Quyền Quản Trị Hệ Thống
+            </h1>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Trang quản trị chỉ dành riêng cho tài khoản có vai trò{" "}
+              <strong className="text-purple-400">Quản Trị Viên (ADMIN)</strong>{" "}
+              hoặc <strong className="text-blue-400">Thu Ngân (CASHIER)</strong>.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#1a261f] border border-[#2b3d32] text-xs space-y-2 text-left">
+            <div className="flex justify-between items-center text-gray-400">
+              <span>Tài khoản hiện tại:</span>
+              <strong className="text-white">
+                {currentUser?.fullName || "Chưa đăng nhập"}
+              </strong>
+            </div>
+            <div className="flex justify-between items-center text-gray-400">
+              <span>Vai trò hiện tại:</span>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${roleInfo.badgeBg}`}
+              >
+                <span>{roleInfo.icon}</span>
+                <span>{roleInfo.label}</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 pt-2">
+            <Link
+              href="/"
+              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer"
+            >
+              <span>🛒</span>
+              <span>Về Trang Mua Sắm Khách Hàng</span>
+            </Link>
+
+            <Link
+              href="/login?redirect=/admin"
+              className="w-full py-2.5 px-4 rounded-xl border border-[#2b3d32] hover:bg-[#1a261f] text-gray-300 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>🔑</span>
+              <span>Đăng Nhập Tài Khoản Admin</span>
+            </Link>
+          </div>
+
+          {/* Công cụ chuyển đổi tài khoản Demo tiện lợi để test phân quyền */}
+          <div className="pt-4 border-t border-[#2b3d32] text-[11px] text-gray-400 space-y-2">
+            <p className="font-semibold text-gray-400">
+              Chuyển nhanh tài khoản để kiểm thử phân quyền:
+            </p>
+            <div className="flex items-center gap-2 justify-center flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const adminUser = {
+                    id: 1,
+                    username: "admin",
+                    fullName: "Nguyễn Quản Trị",
+                    email: "admin@utc.edu.vn",
+                    phone: "0988888888",
+                    role: "ADMIN",
+                    accumulatedPoints: 500,
+                  };
+                  localStorage.setItem("user", JSON.stringify(adminUser));
+                  window.dispatchEvent(new Event("auth-change"));
+                  setCurrentUser(adminUser);
+                  toast.success(
+                    "Đã chuyển sang tài khoản Quản trị viên (ADMIN)!"
+                  );
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-purple-900/40 hover:bg-purple-800/60 border border-purple-700 text-purple-200 font-bold cursor-pointer transition-colors"
+              >
+                🛡️ Sang ADMIN
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const cashierUser = {
+                    id: 2,
+                    username: "thungan01",
+                    fullName: "Trần Thị Thu Ngân",
+                    email: "cashier01@utc.edu.vn",
+                    phone: "0977777777",
+                    role: "CASHIER",
+                    accumulatedPoints: 100,
+                  };
+                  localStorage.setItem("user", JSON.stringify(cashierUser));
+                  window.dispatchEvent(new Event("auth-change"));
+                  setCurrentUser(cashierUser);
+                  toast.success(
+                    "Đã chuyển sang tài khoản Thu ngân (CASHIER)!"
+                  );
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-blue-900/40 hover:bg-blue-800/60 border border-blue-700 text-blue-200 font-bold cursor-pointer transition-colors"
+              >
+                🏪 Sang THU NGÂN
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f1f5f3] dark:bg-[#0b100d] text-gray-900 dark:text-gray-100 flex">
@@ -221,16 +369,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {!isCollapsed && <span>Vào Cửa Hàng</span>}
           </Link>
 
-          <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-1"} pt-1`} title="Nguyễn Quản Trị - admin@utc.edu.vn">
+          <div
+            className={`flex items-center ${
+              isCollapsed ? "justify-center" : "gap-3 px-1"
+            } pt-1 border-t border-gray-100 dark:border-[#1f2e25] mt-1`}
+            title={`${currentUser?.fullName || "Nguyễn Quản Trị"} - ${currentUser?.email || "admin@utc.edu.vn"}`}
+          >
             <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center text-xs border border-emerald-200 dark:border-emerald-800 shrink-0">
-              QT
+              {currentUser?.fullName
+                ? currentUser.fullName.trim().charAt(0).toUpperCase()
+                : "A"}
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
-                  Nguyễn Quản Trị
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                    {currentUser?.fullName || "Nguyễn Quản Trị"}
+                  </p>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200/50 shrink-0">
+                    {getUserRole(currentUser)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 truncate">
+                  {currentUser?.email || currentUser?.phone || "admin@utc.edu.vn"}
                 </p>
-                <p className="text-[10px] text-gray-400 truncate">admin@utc.edu.vn</p>
               </div>
             )}
           </div>
@@ -287,7 +449,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main
+          className={`flex-1 w-full mx-auto ${
+            pathname === "/admin/pos"
+              ? "p-2 sm:p-3 max-w-none"
+              : "p-4 sm:p-6 lg:p-8 max-w-7xl"
+          }`}
+        >
           {children}
         </main>
       </div>

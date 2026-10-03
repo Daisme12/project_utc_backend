@@ -32,7 +32,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponseDto login(LoginRequestDto dto) {
-        User user = userRepository.findByUsername(dto.username())
+        String identifier = dto.username() != null ? dto.username().trim() : "";
+        User user = userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
+                .or(() -> userRepository.findByPhone(identifier))
                 .orElseThrow(() -> new BadRequestException("Tên đăng nhập hoặc mật khẩu không chính xác"));
 
         if (!passwordEncoder.matches(dto.password(), user.getPasswordHash())) {
@@ -82,7 +85,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void changePassword(ChangePasswordRequestDto dto) {
-        User user = userRepository.findByUsername(dto.username())
+        String identifier = dto.username() != null ? dto.username().trim() : "";
+        User user = userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
+                .or(() -> userRepository.findByPhone(identifier))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
 
         if (!passwordEncoder.matches(dto.oldPassword(), user.getPasswordHash())) {

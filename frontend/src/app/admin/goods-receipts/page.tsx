@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   adminService,
@@ -8,6 +9,7 @@ import {
   AdminSupplier,
   AdminProduct,
 } from "@/services/adminService";
+import MultiProductGoodsReceiptForm from "@/components/admin/MultiProductGoodsReceiptForm";
 
 export default function AdminGoodsReceiptsPage() {
   const [receipts, setReceipts] = useState<AdminGoodsReceipt[]>([]);
@@ -15,8 +17,11 @@ export default function AdminGoodsReceiptsPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false); // Single batch modal
+  const [isMultiModalOpen, setIsMultiModalOpen] = useState(false); // Multi-product modal
+  const [searchReceiptQuery, setSearchReceiptQuery] = useState("");
+
   const [formData, setFormData] = useState({
     supplierId: 1,
     productId: 2,
@@ -34,9 +39,9 @@ export default function AdminGoodsReceiptsPage() {
       adminService.getSuppliers(),
       adminService.getProducts(),
     ]);
-    setReceipts(rRes.data);
-    setSuppliers(sRes.data);
-    setProducts(pRes.data);
+    setReceipts(rRes.data || []);
+    setSuppliers(sRes.data || []);
+    setProducts(pRes.data || []);
     setLoading(false);
   };
 
@@ -55,6 +60,11 @@ export default function AdminGoodsReceiptsPage() {
       note: "Nhập thịt mát bảo quản lạnh 0 - 4°C tiêu chuẩn xuất kho",
     });
     setIsModalOpen(true);
+  };
+
+  const handleMultiSuccess = (newReceipts: AdminGoodsReceipt[]) => {
+    setReceipts((prev) => [...newReceipts, ...prev]);
+    setIsMultiModalOpen(false);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -80,6 +90,17 @@ export default function AdminGoodsReceiptsPage() {
     setIsModalOpen(false);
   };
 
+  const filteredReceipts = receipts.filter((r) => {
+    if (!searchReceiptQuery) return true;
+    const q = searchReceiptQuery.toLowerCase();
+    return (
+      r.receiptCode?.toLowerCase().includes(q) ||
+      r.productName?.toLowerCase().includes(q) ||
+      r.supplierName?.toLowerCase().includes(q) ||
+      r.batchNumber?.toLowerCase().includes(q)
+    );
+  });
+
   const formatVnd = (val: number) => {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val);
   };
@@ -96,17 +117,55 @@ export default function AdminGoodsReceiptsPage() {
             Kiểm soát nguồn gốc theo lô (Batch LOT), tiêu chuẩn bảo quản nhiệt độ và hạn dùng thịt mát.
           </p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
-        >
-          <span>＋</span>
-          <span>Lập Phiếu Nhập Kho Mới</span>
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Quick 1-Item LOT modal */}
+          <button
+            onClick={handleOpenAdd}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-[#2b3d32] bg-white dark:bg-[#1a261f] hover:bg-gray-50 dark:hover:bg-[#243329] text-gray-700 dark:text-gray-200 text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            <span>⚡</span>
+            <span>Nhập Nhanh 1 Lô</span>
+          </button>
+
+          {/* Primary: Multi-product modal */}
+          <button
+            onClick={() => setIsMultiModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/30 transition-all active:scale-95 cursor-pointer"
+          >
+            <span>📑</span>
+            <span>Lập Phiếu Nhập Nhiều SP</span>
+          </button>
+
+          {/* Direct link to dedicated page */}
+          <Link
+            href="/admin/goods-receipts/create"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+          >
+            <span>↗</span>
+            <span>Trang Tạo Phiếu</span>
+          </Link>
+        </div>
       </div>
 
-      {/* Receipts Table */}
-      <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-[#121a15] border border-gray-200/80 dark:border-[#1f2e25] shadow-sm overflow-hidden">
+      {/* Receipts Table with Search */}
+      <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-[#121a15] border border-gray-200/80 dark:border-[#1f2e25] shadow-sm space-y-4 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+            <input
+              type="text"
+              placeholder="Tìm theo mã phiếu, sản phẩm, NCC, số lô..."
+              value={searchReceiptQuery}
+              onChange={(e) => setSearchReceiptQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-[#2b3d32] bg-gray-50 dark:bg-[#1a261f] text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="text-xs text-gray-500 font-semibold">
+            Tổng cộng: <span className="font-bold text-gray-900 dark:text-white">{filteredReceipts.length}</span> phiếu nhập
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
@@ -164,7 +223,7 @@ export default function AdminGoodsReceiptsPage() {
         </div>
       </div>
 
-      {/* Modal Add Receipt */}
+      {/* Quick Single Batch Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="w-full max-w-3xl bg-white dark:bg-[#121a15] rounded-3xl border border-gray-200 dark:border-[#1f2e25] shadow-2xl p-6 sm:p-8 space-y-5 my-6 animate-in fade-in zoom-in-95 duration-200">
@@ -322,6 +381,59 @@ export default function AdminGoodsReceiptsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-Product Goods Receipt Modal */}
+      {isMultiModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+          <div className="w-full max-w-5xl bg-white dark:bg-[#121a15] rounded-3xl border border-gray-200 dark:border-[#1f2e25] shadow-2xl p-4 sm:p-6 space-y-4 my-auto max-h-[94vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-3.5 border-gray-100 dark:border-[#1f2e25] sticky top-0 bg-white/95 dark:bg-[#121a15]/95 backdrop-blur z-20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xl shadow-sm">
+                  📑
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-lg sm:text-xl text-gray-900 dark:text-white">
+                      Lập Phiếu Nhập Kho & Mua Hàng
+                    </h3>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                      Chọn Nhiều SP
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Tick chọn nhiều mặt hàng, điều chỉnh số lượng và tự động cộng dồn tồn kho
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/admin/goods-receipts/create"
+                  className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#2b3d32] text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                >
+                  <span>Mở toàn màn hình</span>
+                  <span>↗</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setIsMultiModalOpen(false)}
+                  className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#1f2e25] hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 font-bold flex items-center justify-center cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Form */}
+            <MultiProductGoodsReceiptForm
+              isModal={true}
+              onClose={() => setIsMultiModalOpen(false)}
+              onSuccess={handleMultiSuccess}
+            />
           </div>
         </div>
       )}

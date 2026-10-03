@@ -3,9 +3,9 @@ import AuthTabs from "@/components/auth/AuthTabs";
 import LoginForm from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Đăng nhập | AgriMarket",
+  title: "Đăng nhập | Ubofood",
   description:
-    "Đăng nhập tài khoản AgriMarket để nhận điểm tích lũy và mã giảm giá hôm nay.",
+    "Đăng nhập tài khoản Ubofood để nhận điểm tích lũy và mã giảm giá hôm nay.",
 };
 
 export default function LoginPage() {

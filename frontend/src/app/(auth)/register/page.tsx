@@ -3,9 +3,9 @@ import AuthTabs from "@/components/auth/AuthTabs";
 import RegisterForm from "@/components/auth/RegisterForm";
 
 export const metadata: Metadata = {
-  title: "Đăng ký thành viên mới | AgriMarket",
+  title: "Đăng ký thành viên mới | Ubofood",
   description:
-    "Đăng ký tài khoản thành viên AgriMarket để nhận ngay ưu đãi và tích điểm khi mua sắm hôm nay.",
+    "Đăng ký tài khoản thành viên Ubofood để nhận ngay ưu đãi và tích điểm khi mua sắm hôm nay.",
 };
 
 export default function RegisterPage() {
@@ -20,7 +20,7 @@ export default function RegisterPage() {
           Tạo tài khoản mới
         </h1>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Đăng ký thành viên AgriMarket để nhận ngay ưu đãi và tích điểm.
+          Đăng ký thành viên Ubofood để nhận ngay ưu đãi và tích điểm.
         </p>
       </div>
 

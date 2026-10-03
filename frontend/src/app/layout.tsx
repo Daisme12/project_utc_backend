@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgriMarket - Nông Sản Tươi Sạch Từ Vườn",
-  description: "Nông sản tươi sạch tiêu chuẩn VietGAP & Hữu cơ chứng nhận Quốc tế.",
+  title: {
+    template: "%s | Ubofood Thực Phẩm Tươi Sạch",
+    default: "Ubofood - Thịt Tươi & Thực Phẩm Sạch Chuẩn Mát 0 - 4°C",
+  },
+  description:
+    "Ubofood - Hệ thống chuỗi cung ứng thịt tươi mát chuẩn mổ lạnh châu Âu 0-4°C, rau củ VietGAP và nông sản sạch trực tiếp từ trang trại.",
 };
 
 import { Suspense } from "react";

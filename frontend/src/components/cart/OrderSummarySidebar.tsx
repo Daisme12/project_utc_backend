@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { storeService } from "@/services/storeService";
@@ -8,13 +8,19 @@ import { storeService } from "@/services/storeService";
 interface OrderSummarySidebarProps {
   subtotal: number;
   itemCount: number;
+  paymentMethod?: string;
   onPlaceOrder: (finalTotal: number, voucherCode?: string) => void;
+  onFinalTotalChange?: (finalTotal: number, voucherCode?: string) => void;
+  isProcessing?: boolean;
 }
 
 export default function OrderSummarySidebar({
   subtotal,
   itemCount,
+  paymentMethod = "cod",
   onPlaceOrder,
+  onFinalTotalChange,
+  isProcessing = false,
 }: OrderSummarySidebarProps) {
   const [voucherInput, setVoucherInput] = useState("");
   const [isCheckingVoucher, setIsCheckingVoucher] = useState(false);
@@ -36,6 +42,10 @@ export default function OrderSummarySidebar({
   const finalTotal = hasItems
     ? Math.max(0, subtotal + shippingFee - totalDiscount)
     : 0;
+
+  useEffect(() => {
+    onFinalTotalChange?.(finalTotal, appliedVoucher?.code);
+  }, [finalTotal, appliedVoucher?.code, onFinalTotalChange]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN").format(price);
@@ -260,16 +270,32 @@ export default function OrderSummarySidebar({
         {/* Big Action CTA Button */}
         <button
           type="button"
-          disabled={!hasItems}
+          disabled={!hasItems || isProcessing}
           onClick={() => onPlaceOrder(finalTotal, appliedVoucher?.code)}
           className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${
-            !hasItems
+            !hasItems || isProcessing
               ? "bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-gray-500 cursor-not-allowed shadow-none"
               : "bg-[#195329] hover:bg-[#12421f] text-white shadow-emerald-950/20 active:scale-98 cursor-pointer"
           }`}
         >
-          {!hasItems ? (
+          {isProcessing ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              <span>ĐANG XỬ LÝ ĐƠN HÀNG...</span>
+            </>
+          ) : !hasItems ? (
             <span>VUI LÒNG CHỌN MÓN ĐỂ ĐẶT HÀNG</span>
+          ) : paymentMethod === "vnpay" ? (
+            <>
+              <span>XÁC NHẬN THANH TOÁN VNPAY</span>
+              <span>({formatPrice(finalTotal)}đ)</span>
+              <span>→</span>
+            </>
+          ) : paymentMethod === "card" ? (
+            <>
+              <span>THANH TOÁN QUA THẺ ({formatPrice(finalTotal)}đ)</span>
+              <span>→</span>
+            </>
           ) : (
             <>
               <span>TIẾN HÀNH ĐẶT HÀNG</span>

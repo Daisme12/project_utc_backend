@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import ProductListingCard from "./ProductListingCard";
 import { Product } from "@/types/product";
 import { FilterState } from "./ProductFilterSidebar";
@@ -24,6 +24,7 @@ export default function ProductGridArea({
 }: ProductGridAreaProps) {
   const [sortBy, setSortBy] = useState<string>("best_seller");
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(8);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Lọc và Sắp xếp sản phẩm
@@ -81,6 +82,48 @@ export default function ProductGridArea({
 
     return result;
   }, [products, searchQuery, filters, sortBy]);
+
+  const totalItems = filteredAndSortedProducts.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  // Tự động reset về trang 1 khi thay đổi tìm kiếm, bộ lọc hoặc sắp xếp
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters, sortBy, itemsPerPage]);
+
+  // Điều chỉnh currentPage nếu vượt quá totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Phân trang sản phẩm thực tế
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const displayedProducts = useMemo(() => {
+    return filteredAndSortedProducts.slice(startIndex, endIndex);
+  }, [filteredAndSortedProducts, startIndex, endIndex]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 250, behavior: "smooth" });
+    }
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 2) {
+      return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  };
 
   // Active filters list to display tags
   const activeTags = useMemo(() => {
@@ -257,16 +300,44 @@ export default function ProductGridArea({
         )}
       </div>
 
-      {/* Product Results Info */}
-      <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
-        Hiển thị 1 - {filteredAndSortedProducts.length} trong{" "}
-        <span className="font-bold text-gray-800 dark:text-gray-200">
-          {filteredAndSortedProducts.length} sản phẩm
-        </span>
+      {/* Product Results Info & Page Size Selector */}
+      <div className="text-xs text-gray-500 dark:text-gray-400 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          {totalItems > 0 ? (
+            <>
+              Hiển thị <span className="font-semibold text-gray-800 dark:text-gray-200">{startIndex + 1} - {endIndex}</span> trong tổng số{" "}
+              <span className="font-bold text-[#195329] dark:text-emerald-400">
+                {totalItems} sản phẩm
+              </span>
+            </>
+          ) : (
+            <span>Không tìm thấy sản phẩm nào</span>
+          )}
+        </div>
+
+        {totalItems > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Hiển thị:</span>
+            {[8, 12, 16].map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setItemsPerPage(size)}
+                className={`px-2 py-0.5 rounded-md font-bold text-[11px] transition-colors cursor-pointer ${
+                  itemsPerPage === size
+                    ? "bg-[#195329] text-white shadow-xs"
+                    : "bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {size} / trang
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Product Grid / List */}
-      {filteredAndSortedProducts.length > 0 ? (
+      {displayedProducts.length > 0 ? (
         <div
           className={`grid gap-3 sm:gap-4 ${
             viewMode === "grid"
@@ -274,7 +345,7 @@ export default function ProductGridArea({
               : "grid-cols-1"
           }`}
         >
-          {filteredAndSortedProducts.map((p) => (
+          {displayedProducts.map((p) => (
             <ProductListingCard key={p.id} product={p} />
           ))}
         </div>
@@ -299,52 +370,66 @@ export default function ProductGridArea({
       )}
 
       {/* Pagination Bar */}
-      <div className="pt-6 pb-12 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 dark:border-zinc-800 text-xs text-gray-500">
-        <div>
-          Trang <span className="font-bold text-gray-900 dark:text-white">{currentPage}</span> trên 9 trang (16 sản phẩm / trang)
-        </div>
+      {totalItems > 0 && (
+        <div className="pt-6 pb-12 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 dark:border-zinc-800 text-xs text-gray-500">
+          <div>
+            Trang <span className="font-bold text-gray-900 dark:text-white">{currentPage}</span> trên{" "}
+            <span className="font-bold text-gray-900 dark:text-white">{totalPages}</span> trang ({totalItems} sản phẩm)
+          </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 flex items-center justify-center disabled:opacity-40 hover:bg-gray-50 cursor-pointer"
-          >
-            &lt;
-          </button>
-          {[1, 2, 3].map((page) => (
-            <button
-              key={page}
-              type="button"
-              onClick={() => setCurrentPage(page)}
-              className={`w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all cursor-pointer ${
-                currentPage === page
-                  ? "bg-[#195329] text-white shadow-xs"
-                  : "border border-gray-200 dark:border-zinc-700 hover:bg-gray-50"
-              }`}
-            >
-              {page}
-            </button>
-          ))}
-          <span>...</span>
-          <button
-            type="button"
-            onClick={() => setCurrentPage(9)}
-            className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 font-bold flex items-center justify-center cursor-pointer"
-          >
-            9
-          </button>
-          <button
-            type="button"
-            onClick={() => setCurrentPage((p) => Math.min(9, p + 1))}
-            disabled={currentPage === 9}
-            className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 flex items-center justify-center disabled:opacity-40 hover:bg-gray-50 cursor-pointer"
-          >
-            &gt;
-          </button>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                aria-label="Trang trước"
+                className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer font-bold text-gray-700 dark:text-gray-300 transition-colors"
+              >
+                &lt;
+              </button>
+
+              {getPageNumbers().map((item, idx) => {
+                if (item === "...") {
+                  return (
+                    <span
+                      key={`dots-${idx}`}
+                      className="w-6 text-center text-gray-400 select-none font-bold"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+                const pageNum = Number(item);
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all cursor-pointer ${
+                      currentPage === pageNum
+                        ? "bg-[#195329] text-white shadow-xs"
+                        : "border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Trang sau"
+                className="w-8 h-8 rounded-lg border border-gray-200 dark:border-zinc-700 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer font-bold text-gray-700 dark:text-gray-300 transition-colors"
+              >
+                &gt;
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

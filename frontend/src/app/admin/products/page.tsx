@@ -68,6 +68,7 @@ export default function AdminProductsPage() {
     origin: "Hà Nam",
     brand: "UBOMEAT CHUẨN MÁT",
     imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
+    isFeatured: false,
     isActive: true,
   });
 
@@ -161,6 +162,7 @@ export default function AdminProductsPage() {
       origin: "Ba Vì, Hà Nội",
       brand: "UBOMEAT CHUẨN MÁT",
       imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
+      isFeatured: false,
       isActive: true,
     });
     setIsModalOpen(true);
@@ -182,6 +184,7 @@ export default function AdminProductsPage() {
       origin: p.origin || "Việt Nam",
       brand: p.brand || "UBOMEAT",
       imageUrl: p.imageUrl || "",
+      isFeatured: (p as any).isFeatured || false,
       isActive: p.isActive,
     });
     setIsModalOpen(true);
@@ -760,7 +763,26 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-[#1f2e25]">
+              <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-100 dark:border-[#1f2e25]">
+                <label className="flex items-center gap-3 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={formData.isFeatured}
+                    onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })}
+                    className="w-5 h-5 rounded-lg border-2 border-amber-400 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                      <span>⭐</span>
+                      <span>Sản Phẩm Nổi Bật (Combo Trang Chủ)</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">
+                      Bật để hiển thị sản phẩm trên banner trang chủ
+                    </span>
+                  </div>
+                </label>
+
+                <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -774,6 +796,7 @@ export default function AdminProductsPage() {
                 >
                   {editingProduct ? "Lưu Thay Đổi Sản Phẩm" : "Tạo Sản Phẩm Mới"}
                 </button>
+                </div>
               </div>
             </form>
           </div>

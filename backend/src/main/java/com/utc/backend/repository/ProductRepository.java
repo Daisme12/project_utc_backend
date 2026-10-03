@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,4 +32,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @EntityGraph(attributePaths = {"category"})
     List<Product> findByNameContainingIgnoreCase(String keyword);
+
+    @EntityGraph(attributePaths = {"category"})
+    List<Product> findByIsFeaturedTrueAndIsActiveTrue();
+
+    @EntityGraph(attributePaths = {"category"})
+    List<Product> findByIsActiveTrueAndStockQuantityLessThanOrderByStockQuantityAsc(BigDecimal threshold);
 }
