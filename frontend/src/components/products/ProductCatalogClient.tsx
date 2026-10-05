@@ -96,6 +96,7 @@ export default function ProductCatalogClient({
           onReset={handleReset}
           filteredCount={categoryProducts.length}
           categories={categories}
+          products={products}
         />
 
         {/* Product Grid Area */}

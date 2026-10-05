@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { CategoryItem } from "@/types/product";
+import { CategoryItem, Product } from "@/types/product";
 
 export interface FilterState {
   categorySlug: string;
@@ -19,6 +19,7 @@ interface ProductFilterSidebarProps {
   onReset: () => void;
   filteredCount: number;
   categories?: CategoryItem[];
+  products?: Product[];
 }
 
 export default function ProductFilterSidebar({
@@ -27,6 +28,7 @@ export default function ProductFilterSidebar({
   onReset,
   filteredCount,
   categories = [],
+  products= [],
 }: ProductFilterSidebarProps) {
   const toggleStandard = (key: string) => {
     const next = filters.standards.includes(key)
@@ -85,6 +87,7 @@ export default function ProductFilterSidebar({
             <span>Danh Mục Thực Phẩm</span>
             <span className="text-[10px] text-gray-400">▲</span>
           </h3>
+      
           <div className="space-y-1">
             <Link
               href="/products"
@@ -98,11 +101,14 @@ export default function ProductFilterSidebar({
                 <span>🛒</span>
                 <span>Tất cả sản phẩm</span>
               </span>
-              <span className="text-[11px] text-gray-400">142</span>
+              <span className="text-[11px] text-gray-400">{products.length}</span>
             </Link>
+            
 
             {categories.map((cat) => {
               const isActive = filters.categorySlug === cat.slug;
+
+              const totalProducts = products.filter((product) => product?.categorySlug === cat.slug).length;
               return (
                 <Link
                   key={cat.slug}
@@ -118,7 +124,7 @@ export default function ProductFilterSidebar({
                     <span className="line-clamp-1">{cat.name}</span>
                   </span>
                   <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-[#195329] text-white" : "text-gray-400"}`}>
-                    {cat.count}
+                  {totalProducts}
                   </span>
                 </Link>
               );
