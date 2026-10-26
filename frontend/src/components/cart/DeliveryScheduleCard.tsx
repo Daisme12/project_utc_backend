@@ -2,8 +2,25 @@
 
 import React, { useState } from "react";
 
-export default function DeliveryScheduleCard() {
-  const [selectedMethod, setSelectedMethod] = useState<"fast2h" | "scheduled">("fast2h");
+interface DeliveryScheduleCardProps {
+  selectedMethod?: "fast2h" | "scheduled";
+  onSelectMethod?: (method: "fast2h" | "scheduled") => void;
+}
+
+export default function DeliveryScheduleCard({
+  selectedMethod: propMethod,
+  onSelectMethod,
+}: DeliveryScheduleCardProps = {}) {
+  const [internalMethod, setInternalMethod] = useState<"fast2h" | "scheduled">("fast2h");
+  const selectedMethod = propMethod !== undefined ? propMethod : internalMethod;
+
+  const handleSelect = (method: "fast2h" | "scheduled") => {
+    if (onSelectMethod) {
+      onSelectMethod(method);
+    } else {
+      setInternalMethod(method);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-4">
@@ -35,7 +52,7 @@ export default function DeliveryScheduleCard() {
                   type="radio"
                   name="deliveryMethod"
                   checked={selectedMethod === "fast2h"}
-                  onChange={() => setSelectedMethod("fast2h")}
+                  onChange={() => handleSelect("fast2h")}
                   className="w-4 h-4 text-[#195329] focus:ring-emerald-500 border-gray-300 cursor-pointer"
                 />
                 <span className="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-white flex items-center gap-1">
@@ -76,7 +93,7 @@ export default function DeliveryScheduleCard() {
                   type="radio"
                   name="deliveryMethod"
                   checked={selectedMethod === "scheduled"}
-                  onChange={() => setSelectedMethod("scheduled")}
+                  onChange={() => handleSelect("scheduled")}
                   className="w-4 h-4 text-[#195329] focus:ring-emerald-500 border-gray-300 cursor-pointer"
                 />
                 <span className="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-white flex items-center gap-1">

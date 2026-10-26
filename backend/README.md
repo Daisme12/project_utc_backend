@@ -154,20 +154,25 @@ Trong thời đại chuyển đổi số và thương mại điện tử phát t
 ## 1.3. Khảo sát nghiệp vụ & Yêu cầu hệ thống
 
 ### 1. Yêu cầu chức năng (Functional Requirements)
-Hệ thống phục vụ 3 nhóm tác nhân chính:
-* **Khách hàng (Customer / Sinh viên):**
-  * Đăng ký, đăng nhập tài khoản, làm mới token, quên mật khẩu nhận mã OTP qua Gmail.
+Hệ thống phục vụ 4 nhóm tác nhân chính:
+* **Khách vãng lai (Guest):**
   * Duyệt danh mục sản phẩm, tìm kiếm theo từ khóa, lọc theo khoảng giá và tiêu chuẩn chất lượng.
-  * Quản lý giỏ hàng, áp dụng mã giảm giá voucher.
-  * Đặt hàng và lựa chọn phương thức thanh toán: COD (Tiền mặt) hoặc VNPAY Sandbox (quét mã QR ngân hàng).
-  * Tra cứu lịch sử đơn hàng và theo dõi tiến độ giao nhận.
-* **Nhân viên / Thủ kho (Staff / Cashier):**
+  * Quản lý giỏ hàng (`localStorage`), áp dụng mã giảm giá voucher.
+  * Đặt hàng nhanh không cần đăng nhập (nhập họ tên, số điện thoại, địa chỉ giao hàng) và lựa chọn phương thức thanh toán: COD (Tiền mặt) hoặc VNPAY Sandbox (quét mã QR ngân hàng).
+  * Tra cứu thông tin đơn hàng theo mã đơn (`orderCode`).
+  * Đăng ký tài khoản mới, đăng nhập hoặc khôi phục mật khẩu qua mã OTP gửi về Gmail.
+* **Khách hàng thành viên (Customer / Sinh viên):**
+  * Kế thừa toàn bộ chức năng mua sắm và đặt hàng của Khách vãng lai, đồng thời tự động điền thông tin người nhận từ hồ sơ cá nhân.
+  * Quản lý thông tin hồ sơ cá nhân, đổi mật khẩu và làm mới phiên đăng nhập (Refresh Token).
+  * Theo dõi toàn bộ lịch sử đơn hàng đã đặt theo tài khoản (`userId`) và tích lũy điểm thưởng thành viên (`accumulatedPoints`).
+* **Nhân viên / Thủ kho / Thu ngân (Staff / Cashier):**
+  * Tạo đơn bán hàng trực tiếp tại quầy (`POS`) và in hóa đơn (`markAsPrinted`).
   * Quản lý thông tin chi tiết sản phẩm và danh mục.
   * Lập phiếu nhập kho (`GoodsReceipt`) từ các nhà cung cấp, hệ thống tự động cộng dồn số lượng tồn kho.
   * Kiểm tra danh sách mặt hàng sắp hết kho (`low-stock`) để kịp thời bổ sung hàng.
   * Tiếp nhận đơn hàng, duyệt đơn, bàn giao vận chuyển và cập nhật trạng thái đơn hàng.
 * **Quản trị viên (Admin):**
-  * Toàn quyền quản lý tài khoản người dùng, khóa hoặc mở khóa tài khoản.
+  * Toàn quyền quản lý tài khoản người dùng, phân quyền (`ADMIN`, `STAFF`, `CUSTOMER`), khóa hoặc mở khóa tài khoản.
   * Quản lý thông tin nhà cung cấp hàng hóa (`Supplier`).
   * Khởi tạo các chương trình khuyến mãi, thiết lập mã voucher giảm giá.
   * Theo dõi báo cáo thống kê doanh thu và giám sát tình trạng hệ thống (`Health Check`).
@@ -206,77 +211,95 @@ Hệ thống phục vụ 3 nhóm tác nhân chính:
 
 ## 2.1. Phân tích tác nhân & Sơ đồ Use Case tổng quan
 
-Hệ thống xác định 4 nhóm tác nhân tương tác: **Khách vãng lai (Guest)**, **Khách hàng (Customer)**, **Nhân viên / Thủ kho (Staff)** và **Quản trị viên (Admin)**.
+Hệ thống xác định **4 nhóm tác nhân** tương tác chính: **Khách vãng lai (Guest)**, **Khách hàng thành viên (Customer)**, **Nhân viên / Thủ kho / Thu ngân (Staff)** và **Quản trị viên (Admin)**. Trong đó, **Khách hàng thành viên** kế thừa toàn bộ quyền mua sắm/đặt hàng của **Khách vãng lai** và mở rộng thêm các tiện ích gắn với tài khoản định danh.
 
 ```mermaid
 flowchart LR
-    subgraph Actors [Tác nhân hệ thống]
-        Guest([Khách vãng lai])
-        Cust([Khách hàng / Sinh viên])
-        Staff([Nhân viên / Thủ kho])
-        Admin([Quản trị viên])
+    subgraph Actors ["4 Nhóm Tác Nhân Hệ Thống"]
+        Guest(["1. Khách vãng lai (Guest)"])
+        Cust(["2. Khách hàng thành viên (Customer)"])
+        Staff(["3. Nhân viên / Thủ kho (Staff)"])
+        Admin(["4. Quản trị viên (Admin)"])
     end
 
-    subgraph GuestUC [Phân hệ Khách vãng lai]
-        UC_ViewProd(Xem danh mục & Chi tiết sản phẩm)
-        UC_Search(Tìm kiếm & Lọc sản phẩm)
-        UC_Auth(Đăng ký / Đăng nhập / Quên MK)
+    subgraph GuestUC ["Nhóm 1: Phân hệ Khách vãng lai (Mua sắm & Đặt hàng không cần đăng nhập)"]
+        UC_ViewProd("Xem danh mục & Chi tiết sản phẩm")
+        UC_Search("Tìm kiếm & Lọc sản phẩm")
+        UC_Cart("Quản lý Giỏ hàng & Áp dụng Voucher")
+        UC_GuestOrder("Đặt hàng nhanh (Nhập Tên, SĐT, Địa chỉ)")
+        UC_Pay("Thanh toán COD / VNPAY Sandbox")
+        UC_LookupCode("Tra cứu đơn hàng theo Mã đơn (OrderCode)")
+        UC_Auth("Đăng ký / Đăng nhập / Quên mật khẩu OTP")
     end
 
-    subgraph CustUC [Phân hệ Khách hàng]
-        UC_Cart(Quản lý Giỏ hàng)
-        UC_Order(Đặt hàng & Áp dụng Voucher)
-        UC_Pay(Thanh toán VNPAY Sandbox)
-        UC_Track(Theo dõi lịch sử đơn hàng)
-        UC_Profile(Cập nhật thông tin cá nhân)
+    subgraph CustUC ["Nhóm 2: Phân hệ Khách hàng thành viên (Tài khoản định danh)"]
+        UC_AutoFill("Tự động điền thông tin giao hàng từ Hồ sơ")
+        UC_TrackHistory("Theo dõi toàn bộ Lịch sử đơn hàng theo User")
+        UC_Profile("Cập nhật Hồ sơ cá nhân & Đổi mật khẩu")
+        UC_Points("Tích lũy điểm thưởng thành viên")
     end
 
-    subgraph StaffUC [Phân hệ Nhân viên & Kho]
-        UC_Receipt(Lập phiếu nhập kho GoodsReceipt)
-        UC_Stock(Kiểm tra tồn kho & Cảnh báo hết hàng)
-        UC_OrderProc(Xác nhận & Cập nhật trạng thái đơn)
+    subgraph StaffUC ["Nhóm 3: Phân hệ Nhân viên / Thu ngân / Thủ kho"]
+        UC_POS("Bán hàng tại quầy (POS) & In hóa đơn")
+        UC_OrderProc("Xác nhận & Cập nhật trạng thái đơn hàng")
+        UC_CatProd("Quản lý Danh mục, Sản phẩm & Upload ảnh")
+        UC_Receipt("Lập phiếu nhập kho (GoodsReceipt)")
+        UC_Stock("Kiểm tra tồn kho & Cảnh báo sắp hết hàng")
     end
 
-    subgraph AdminUC [Phân hệ Quản trị hệ thống]
-        UC_UserManage(Quản lý tài khoản & Phân quyền)
-        UC_CatManage(Quản lý Danh mục & Sản phẩm)
-        UC_VoucherManage(Tạo & Quản lý mã Voucher)
-        UC_SupplierManage(Quản lý Nhà cung cấp)
-        UC_Stat(Thống kê báo cáo doanh thu)
+    subgraph AdminUC ["Nhóm 4: Phân hệ Quản trị viên hệ thống"]
+        UC_UserManage("Quản lý tài khoản, Phân quyền & Khóa User")
+        UC_SupplierManage("Quản lý Nhà cung cấp (Supplier)")
+        UC_VoucherManage("Tạo & Quản lý chương trình Voucher")
+        UC_Stat("Thống kê doanh thu & Giám sát Health Check")
     end
 
+    %% Quan hệ kế thừa quyền giữa Customer và Guest
+    Cust -. "«kế thừa»" .-> Guest
+
+    %% Tác nhân 1: Guest
     Guest --> UC_ViewProd
     Guest --> UC_Search
+    Guest --> UC_Cart
+    Guest --> UC_GuestOrder
+    Guest --> UC_Pay
+    Guest --> UC_LookupCode
     Guest --> UC_Auth
 
-    Cust --> UC_Cart
-    Cust --> UC_Order
-    Cust --> UC_Pay
-    Cust --> UC_Track
+    %% Tác nhân 2: Customer
+    Cust --> UC_AutoFill
+    Cust --> UC_TrackHistory
     Cust --> UC_Profile
+    Cust --> UC_Points
 
+    %% Tác nhân 3: Staff
+    Staff --> UC_POS
+    Staff --> UC_OrderProc
+    Staff --> UC_CatProd
     Staff --> UC_Receipt
     Staff --> UC_Stock
-    Staff --> UC_OrderProc
 
+    %% Tác nhân 4: Admin (kế thừa vận hành của Staff)
+    Admin -. "«kế thừa»" .-> Staff
     Admin --> UC_UserManage
-    Admin --> UC_CatManage
-    Admin --> UC_VoucherManage
     Admin --> UC_SupplierManage
+    Admin --> UC_VoucherManage
     Admin --> UC_Stat
 ```
 
-**Bảng 2.1: Đặc tả các Use Case chính của hệ thống**
+**Bảng 2.1: Đặc tả các Use Case chính theo 4 nhóm tác nhân của hệ thống**
 
-| Tác nhân | Use Case chính | Mô tả hành động và kết quả |
+| Nhóm tác nhân | Use Case chính | Mô tả hành động và kết quả |
 | :--- | :--- | :--- |
-| **Guest** | Tìm kiếm & Xem sản phẩm | Tìm kiếm sản phẩm theo từ khóa, lọc theo danh mục, xem đơn giá, thông tin nguồn gốc. |
-| **Guest** | Đăng ký tài khoản | Điền thông tin cá nhân; hệ thống kiểm tra trùng lặp và tạo tài khoản với quyền `CUSTOMER`. |
-| **Customer** | Đặt hàng & Thanh toán | Chọn sản phẩm vào giỏ, nhập mã voucher, chọn COD hoặc chuyển tiếp sang Cổng VNPAY thanh toán. |
-| **Staff** | Lập phiếu nhập kho | Chọn nhà cung cấp, nhập danh sách mặt hàng kèm giá vốn; hệ thống tự động cộng dồn số lượng tồn kho. |
-| **Staff** | Cập nhật đơn hàng | Chuyển đổi trạng thái đơn hàng từ `PENDING` ➔ `CONFIRMED` ➔ `SHIPPING` ➔ `COMPLETED`. |
-| **Admin** | Quản lý người dùng | Xem danh sách tài khoản, thêm mới tài khoản nhân viên, khóa/mở khóa tài khoản người dùng. |
-| **Admin** | Thống kê doanh thu | Xem tổng hợp doanh thu theo kỳ, đếm số đơn hàng thành công và cảnh báo tồn kho an toàn. |
+| **1. Khách vãng lai (Guest)** | Tìm kiếm & Xem sản phẩm | Duyệt danh mục, tìm kiếm theo từ khóa, lọc theo giá/tiêu chuẩn, xem chi tiết sản phẩm. |
+| **1. Khách vãng lai (Guest)** | Đặt hàng & Thanh toán | Thêm giỏ hàng, áp mã voucher, điền Họ tên/SĐT/Địa chỉ nhận hàng (`userId = null`), thanh toán COD hoặc VNPAY. |
+| **1. Khách vãng lai (Guest)** | Tra cứu mã đơn & Xác thực | Tra cứu đơn theo `orderCode`; Đăng ký tài khoản mới, Đăng nhập hoặc Quên mật khẩu qua Email OTP. |
+| **2. Khách hàng (Customer)** | Đặt hàng thành viên & Tích điểm | Kế thừa đặt hàng của Guest nhưng tự động điền thông tin từ hồ sơ (`userId` gắn với tài khoản) và cộng điểm tích lũy. |
+| **2. Khách hàng (Customer)** | Quản lý hồ sơ & Lịch sử đơn | Cập nhật thông tin cá nhân, đổi mật khẩu; xem danh sách toàn bộ đơn hàng đã mua theo tài khoản. |
+| **3. Nhân viên (Staff)** | Bán hàng POS & Xử lý đơn | Tạo đơn trực tiếp tại quầy (`channel = POS`), in hóa đơn; chuyển trạng thái `PENDING` ➔ `CONFIRMED` ➔ `SHIPPING` ➔ `COMPLETED`. |
+| **3. Nhân viên (Staff)** | Quản lý sản phẩm & Nhập kho | Thêm/sửa sản phẩm, tải ảnh Cloudinary; lập phiếu nhập kho (`GoodsReceipt`) tự động cộng tồn kho và kiểm tra hàng sắp hết. |
+| **4. Quản trị viên (Admin)** | Quản trị người dùng & Đối tác | Quản lý danh sách người dùng, cấp quyền nhân viên, khóa/mở khóa tài khoản; quản lý nhà cung cấp (`Supplier`). |
+| **4. Quản trị viên (Admin)** | Quản lý Voucher & Thống kê | Thiết lập mã giảm giá (`Voucher`); xem báo cáo doanh thu, tổng hợp đơn hàng và giám sát `Health Check`. |
 
 ---
 
@@ -576,9 +599,11 @@ flowchart TD
 #### 7. Lưu đồ Quy trình Tạo Đơn hàng & Trừ tồn kho (Order Creation & Inventory Deduction)
 ```mermaid
 flowchart TD
-    StartOrder([Khách hàng nhấn 'Đặt hàng']) --> CheckAuthUser{Đã xác thực JWT?}
-    CheckAuthUser -- Chưa --> ErrAuthOrder[Trả về 401: Unauthorized]
-    CheckAuthUser -- Rồi --> ValidateItems{Kiểm tra danh sách mặt hàng}
+    StartOrder([Khách vãng lai / Thành viên nhấn 'Đặt hàng']) --> CheckAuthUser{Có userId đã đăng nhập?}
+    CheckAuthUser -- Có --> LinkUser[Gắn User thành viên vào Order]
+    CheckAuthUser -- Không (Khách vãng lai) --> GuestUser[Gán user = null, lưu Tên + SĐT + Địa chỉ nhận]
+    LinkUser --> ValidateItems{Kiểm tra danh sách mặt hàng}
+    GuestUser --> ValidateItems
     ValidateItems -- Giỏ trống --> ErrEmptyCart[Trả về 400: Đơn hàng không có sản phẩm]
     ValidateItems -- Có hàng --> BeginTxOrder[Khởi tạo Transaction @Transactional]
     BeginTxOrder --> CheckStockForEach[Lặp kiểm tra số lượng tồn kho từng sản phẩm]

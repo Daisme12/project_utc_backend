@@ -10,6 +10,8 @@ export interface PaymentMethodsCardProps {
   orderCode?: string;
   onConfirmPayment?: () => void;
   isProcessing?: boolean;
+  isInfoComplete?: boolean;
+  onRequireInfo?: () => void;
 }
 
 export default function PaymentMethodsCard({
@@ -19,6 +21,8 @@ export default function PaymentMethodsCard({
   orderCode = "UBO-ORDER",
   onConfirmPayment,
   isProcessing = false,
+  isInfoComplete = true,
+  onRequireInfo,
 }: PaymentMethodsCardProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(900); // 15 phút (900s)
@@ -366,14 +370,37 @@ export default function PaymentMethodsCard({
                     </div>
                   </div>
 
+                  {/* Incomplete Info Warning */}
+                  {!isInfoComplete && (
+                    <div
+                      onClick={onRequireInfo}
+                      className="mt-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 cursor-pointer hover:bg-amber-100/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span className="font-bold text-[11px]">Vui lòng nhập thông tin nhận hàng trước khi xác nhận thanh toán</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-[#195329] dark:text-emerald-400 underline whitespace-nowrap">
+                        Nhập ngay
+                      </span>
+                    </div>
+                  )}
+
                   {/* Primary Action Button: "Xác nhận đã thanh toán" */}
                   <div className="mt-4 pt-3 border-t border-gray-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center gap-3">
                     <button
                       type="button"
-                      disabled={isProcessing || qrAmount <= 0}
-                      onClick={() => onConfirmPayment?.()}
+                      disabled={isProcessing || qrAmount <= 0 || !isInfoComplete}
+                      onClick={() => {
+                        if (!isInfoComplete) {
+                          toast.error("Vui lòng nhập đầy đủ thông tin giao hàng trước khi thanh toán!");
+                          onRequireInfo?.();
+                          return;
+                        }
+                        onConfirmPayment?.();
+                      }}
                       className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${
-                        isProcessing || qrAmount <= 0
+                        isProcessing || qrAmount <= 0 || !isInfoComplete
                           ? "bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                           : "bg-[#195329] hover:bg-[#12421f] text-white shadow-emerald-950/20 active:scale-98 cursor-pointer"
                       }`}
@@ -383,6 +410,8 @@ export default function PaymentMethodsCard({
                           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                           <span>Đang xác nhận đơn hàng...</span>
                         </>
+                      ) : !isInfoComplete ? (
+                        <span>VUI LÒNG NHẬP THÔNG TIN NHẬN HÀNG</span>
                       ) : (
                         <>
                           <span>✓</span>
@@ -529,14 +558,37 @@ export default function PaymentMethodsCard({
                     </div>
                   </div>
 
+                  {/* Incomplete Info Warning */}
+                  {!isInfoComplete && (
+                    <div
+                      onClick={onRequireInfo}
+                      className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 cursor-pointer hover:bg-amber-100/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span className="font-bold text-[11px]">Vui lòng nhập thông tin nhận hàng trước khi thanh toán</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-[#195329] dark:text-emerald-400 underline whitespace-nowrap">
+                        Nhập ngay
+                      </span>
+                    </div>
+                  )}
+
                   {/* Card Payment CTA Button */}
                   <div className="pt-2 border-t border-gray-100 dark:border-zinc-800">
                     <button
                       type="button"
-                      disabled={isProcessing || qrAmount <= 0}
-                      onClick={handlePayCard}
+                      disabled={isProcessing || qrAmount <= 0 || !isInfoComplete}
+                      onClick={() => {
+                        if (!isInfoComplete) {
+                          toast.error("Vui lòng nhập đầy đủ thông tin giao hàng trước khi thanh toán!");
+                          onRequireInfo?.();
+                          return;
+                        }
+                        handlePayCard();
+                      }}
                       className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${
-                        isProcessing || qrAmount <= 0
+                        isProcessing || qrAmount <= 0 || !isInfoComplete
                           ? "bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                           : "bg-[#195329] hover:bg-[#12421f] text-white shadow-emerald-950/20 active:scale-98 cursor-pointer"
                       }`}
@@ -546,6 +598,8 @@ export default function PaymentMethodsCard({
                           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                           <span>Đang xác thực bảo mật thẻ...</span>
                         </>
+                      ) : !isInfoComplete ? (
+                        <span>VUI LÒNG NHẬP THÔNG TIN NHẬN HÀNG</span>
                       ) : (
                         <>
                           <span>💳</span>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useCart, CartItem } from "@/context/CartContext";
+import { useCart } from "@/context/CartContext";
 import { storeService, CreateOrderPayload } from "@/services/storeService";
 import CartStepWizard from "./CartStepWizard";
 import CartItemList from "./CartItemList";
@@ -13,9 +13,10 @@ import PaymentMethodsCard from "./PaymentMethodsCard";
 import OrderSummarySidebar from "./OrderSummarySidebar";
 import CartBottomAssurance from "./CartBottomAssurance";
 import OrderSuccessModal from "./OrderSuccessModal";
+import OrderConfirmModal, { DeliveryInfo } from "./OrderConfirmModal";
 
 export default function CartPageClient() {
-  const { items, addItem, removeItem, clearCart } = useCart();
+  const { items, addItem, removeItem } = useCart();
   const [paymentMethod, setPaymentMethod] = useState("vnpay");
   const [pendingOrderCode, setPendingOrderCode] = useState(
     () => `UBO-${Math.floor(10000 + Math.random() * 90000)}`
@@ -23,6 +24,21 @@ export default function CartPageClient() {
   const [currentFinalTotal, setCurrentFinalTotal] = useState(0);
   const [currentVoucherCode, setCurrentVoucherCode] = useState<string | undefined>(undefined);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  // Delivery & Schedule States
+  const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo>({
+    name: "",
+    phone: "",
+    address: "",
+    tag: "Nhà riêng",
+    hubDistance: "1.2 km",
+    deliveryInstruction: "Giao tận tay trong túi bảo quản giữ nhiệt 0 - 4°C chuyên dụng.",
+  });
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [deliverySchedule, setDeliverySchedule] = useState<"fast2h" | "scheduled">("fast2h");
+
+  // Confirmation Modal State ("popup xác nhận lần nữa")
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   const [successModalData, setSuccessModalData] = useState<{
     isOpen: boolean;
@@ -40,6 +56,91 @@ export default function CartPageClient() {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [initializedSelection, setInitializedSelection] = useState(false);
+
+  // Tự động load thông tin giao hàng từ local storage và tài khoản người dùng
+  useEffect(() => {
+    let initialName = "";
+    let initialPhone = "";
+    let initialAddress = "";
+    let initialTag = "Nhà riêng";
+    let initialInstruction = "Giao tận tay trong túi bảo quản giữ nhiệt 0 - 4°C chuyên dụng.";
+
+    try {
+      const savedInfo = localStorage.getItem("cart_delivery_info");
+      if (savedInfo) {
+        const parsed = JSON.parse(savedInfo);
+        if (parsed.name) initialName = parsed.name;
+        if (parsed.phone && parsed.phone !== "Chưa cập nhật SĐT") initialPhone = parsed.phone;
+        if (parsed.address) initialAddress = parsed.address;
+        if (parsed.tag) initialTag = parsed.tag;
+        if (parsed.deliveryInstruction) initialInstruction = parsed.deliveryInstruction;
+      }
+    } catch {}
+
+    try {
+      const uStr = localStorage.getItem("user");
+      if (uStr) {
+        const u = JSON.parse(uStr);
+        if (!initialName && u.fullName && u.fullName !== "Khách hàng") initialName = u.fullName;
+        if (!initialPhone && u.phone && u.phone !== "Chưa cập nhật SĐT") initialPhone = u.phone;
+        if (!initialAddress && (u.address || u.shippingAddress)) initialAddress = u.address || u.shippingAddress;
+      }
+    } catch {}
+
+    setDeliveryInfo({
+      name: initialName,
+      phone: initialPhone,
+      address: initialAddress,
+      tag: initialTag,
+      hubDistance: "1.2 km",
+      deliveryInstruction: initialInstruction,
+    });
+
+    const handleUserUpdated = (e: any) => {
+      if (e.detail) {
+        setDeliveryInfo((prev) => ({
+          ...prev,
+          name: prev.name || e.detail.fullName || prev.name,
+          phone: prev.phone || e.detail.phone || prev.phone,
+          address: prev.address || e.detail.address || e.detail.shippingAddress || prev.address,
+        }));
+      }
+    };
+    window.addEventListener("userUpdated", handleUserUpdated);
+    return () => window.removeEventListener("userUpdated", handleUserUpdated);
+  }, []);
+
+  const handleUpdateDeliveryInfo = (newInfo: DeliveryInfo) => {
+    setDeliveryInfo(newInfo);
+    try {
+      localStorage.setItem("cart_delivery_info", JSON.stringify(newInfo));
+      const uStr = localStorage.getItem("user");
+      if (uStr) {
+        const u = JSON.parse(uStr);
+        const updated = {
+          ...u,
+          fullName: newInfo.name,
+          phone: newInfo.phone,
+          address: newInfo.address,
+        };
+        localStorage.setItem("user", JSON.stringify(updated));
+      }
+    } catch {}
+  };
+
+  // Kiểm tra thông tin đã nhập đầy đủ chưa
+  const cleanPhone = (deliveryInfo.phone || "").replace(/[\s.-]/g, "");
+  const isInfoComplete = Boolean(
+    deliveryInfo.name.trim().length >= 2 &&
+    cleanPhone.length >= 9 &&
+    cleanPhone !== "Chưa cập nhật SĐT" &&
+    deliveryInfo.address.trim().length >= 5
+  );
+
+  const deliveryTime =
+    deliverySchedule === "fast2h"
+      ? "10:30 - 11:30 Hôm nay"
+      : "16:00 - 18:00 Chiều nay";
 
   // Tự động chọn tất cả sản phẩm khi danh sách giỏ hàng thay đổi
   useEffect(() => {
@@ -126,12 +227,26 @@ export default function CartPageClient() {
       ? selectedSubtotal
       : selectedSubtotal + (selectedSubtotal > 0 ? 25000 : 0);
 
-  const handlePlaceOrder = async (finalTotal: number, voucherCode?: string) => {
+  // Mở popup xác nhận lần nữa khi ấn nút thanh toán
+  const handleRequestConfirmOrder = () => {
     if (selectedItems.length === 0) {
       toast.error("Vui lòng tích chọn ít nhất 1 sản phẩm để đặt hàng!");
       return;
     }
 
+    if (!isInfoComplete) {
+      toast.error("Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Địa chỉ giao hàng trước khi thanh toán!");
+      setIsEditingAddress(true);
+      const el = document.getElementById("delivery-address-section");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    setIsConfirmModalOpen(true);
+  };
+
+  // Thực hiện đặt hàng khi người dùng xác nhận trong popup
+  const handlePlaceOrder = async (finalTotal: number, voucherCode?: string) => {
     setIsPlacingOrder(true);
     const toastId = toast.loading("Đang gửi đơn hàng lên hệ thống...");
 
@@ -154,11 +269,11 @@ export default function CartPageClient() {
       orderCode: orderCode,
       channel: "WEB",
       userId: storedUser.id || undefined,
-      customerName: storedUser.fullName || "Khách Hàng Trực Tuyến",
-      customerPhone: storedUser.phone || "0988888888",
-      shippingAddress: "Số 3 Cầu Giấy, Láng Thượng, Đống Đa, Hà Nội",
-      deliveryMethod: "FAST_2H",
-      note: orderNote,
+      customerName: deliveryInfo.name.trim(),
+      customerPhone: deliveryInfo.phone.trim(),
+      shippingAddress: deliveryInfo.address.trim(),
+      deliveryMethod: deliverySchedule === "fast2h" ? "FAST_2H" : "SCHEDULED",
+      note: `${orderNote}${deliveryInfo.deliveryInstruction ? " - " + deliveryInfo.deliveryInstruction : ""}`,
       totalAmount: selectedSubtotal,
       shippingFee: selectedSubtotal >= 150000 ? 0 : 25000,
       finalAmount: finalTotal,
@@ -198,13 +313,14 @@ export default function CartPageClient() {
       );
     } finally {
       setIsPlacingOrder(false);
+      setIsConfirmModalOpen(false);
     }
 
     setSuccessModalData({
       isOpen: true,
       orderCode,
       totalAmount: finalTotal,
-      deliveryTime: "10:30 - 11:30 Hôm nay",
+      deliveryTime,
       paymentMethod: methodUpper,
     });
 
@@ -280,10 +396,19 @@ export default function CartPageClient() {
             />
 
             {/* Delivery Address */}
-            <DeliveryAddressCard />
+            <DeliveryAddressCard
+              deliveryInfo={deliveryInfo}
+              onUpdateDeliveryInfo={handleUpdateDeliveryInfo}
+              isInfoComplete={isInfoComplete}
+              isEditing={isEditingAddress}
+              setIsEditing={setIsEditingAddress}
+            />
 
             {/* Delivery Time & Preservation Method */}
-            <DeliveryScheduleCard />
+            <DeliveryScheduleCard
+              selectedMethod={deliverySchedule}
+              onSelectMethod={setDeliverySchedule}
+            />
 
             {/* Payment Methods */}
             <PaymentMethodsCard
@@ -291,8 +416,14 @@ export default function CartPageClient() {
               onSelectMethod={setPaymentMethod}
               totalAmount={calculatedTotal}
               orderCode={pendingOrderCode}
-              onConfirmPayment={() => handlePlaceOrder(calculatedTotal, currentVoucherCode)}
+              onConfirmPayment={handleRequestConfirmOrder}
               isProcessing={isPlacingOrder}
+              isInfoComplete={isInfoComplete}
+              onRequireInfo={() => {
+                setIsEditingAddress(true);
+                const el = document.getElementById("delivery-address-section");
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
             />
           </div>
 
@@ -301,12 +432,18 @@ export default function CartPageClient() {
             subtotal={selectedSubtotal}
             itemCount={selectedItemCount}
             paymentMethod={paymentMethod}
-            onPlaceOrder={handlePlaceOrder}
+            onPlaceOrder={handleRequestConfirmOrder}
             onFinalTotalChange={(total, code) => {
               setCurrentFinalTotal(total);
               setCurrentVoucherCode(code);
             }}
             isProcessing={isPlacingOrder}
+            isInfoComplete={isInfoComplete}
+            onRequireInfo={() => {
+              setIsEditingAddress(true);
+              const el = document.getElementById("delivery-address-section");
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
           />
         </div>
       )}
@@ -314,7 +451,30 @@ export default function CartPageClient() {
       {/* 4. Bottom Assurance Bar */}
       <CartBottomAssurance />
 
-      {/* 5. Success Order Modal */}
+      {/* 5. Order Confirmation Modal ("Popup xác nhận lần nữa") */}
+      <OrderConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={() => handlePlaceOrder(calculatedTotal, currentVoucherCode)}
+        isProcessing={isPlacingOrder}
+        selectedItems={selectedItems}
+        deliveryInfo={deliveryInfo}
+        deliverySchedule={deliverySchedule}
+        deliveryTime={deliveryTime}
+        paymentMethod={paymentMethod}
+        subtotal={selectedSubtotal}
+        shippingFee={selectedSubtotal >= 150000 || selectedSubtotal === 0 ? 0 : 25000}
+        totalDiscount={Math.max(
+          0,
+          selectedSubtotal +
+            (selectedSubtotal >= 150000 || selectedSubtotal === 0 ? 0 : 25000) -
+            calculatedTotal
+        )}
+        finalTotal={calculatedTotal}
+        voucherCode={currentVoucherCode}
+      />
+
+      {/* 6. Success Order Modal */}
       <OrderSuccessModal
         isOpen={successModalData.isOpen}
         orderCode={successModalData.orderCode}

@@ -367,11 +367,11 @@ export default function AdminProductsPage() {
                     {sortBy === "NAME_AZ" && <span className="text-emerald-600 font-black">🔤</span>}
                   </div>
                 </th>
-                <th className="py-3 px-3">SKU</th>
-                <th className="py-3 px-3">Tiêu Chuẩn</th>
+                <th className="py-3 px-3 whitespace-nowrap">SKU</th>
+                <th className="py-3 px-3 whitespace-nowrap">Tiêu Chuẩn</th>
                 <th
                   onClick={() => setSortBy((prev) => (prev === "PRICE_ASC" ? "PRICE_DESC" : "PRICE_ASC"))}
-                  className="py-3 px-3 cursor-pointer hover:text-emerald-600 transition-colors"
+                  className="py-3 px-3 cursor-pointer hover:text-emerald-600 transition-colors whitespace-nowrap"
                   title="Bấm để sắp xếp theo giá bán"
                 >
                   <div className="flex items-center gap-1">
@@ -382,7 +382,7 @@ export default function AdminProductsPage() {
                 </th>
                 <th
                   onClick={() => setSortBy((prev) => (prev === "STOCK_ASC" ? "STOCK_DESC" : "STOCK_ASC"))}
-                  className="py-3 px-3 cursor-pointer hover:text-emerald-600 transition-colors"
+                  className="py-3 px-3 cursor-pointer hover:text-emerald-600 transition-colors whitespace-nowrap"
                   title="Bấm để sắp xếp theo số lượng tồn kho"
                 >
                   <div className="flex items-center gap-1">
@@ -391,8 +391,8 @@ export default function AdminProductsPage() {
                     {sortBy === "STOCK_DESC" && <span className="text-emerald-600 font-black">▼</span>}
                   </div>
                 </th>
-                <th className="py-3 px-3">Đánh Giá</th>
-                <th className="py-3 px-3 text-right">Thao Tác</th>
+                <th className="py-3 px-3 whitespace-nowrap">Đánh Giá</th>
+                <th className="py-3 px-3 text-right whitespace-nowrap">Thao Tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-[#1f2e25]">
@@ -436,15 +436,15 @@ export default function AdminProductsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-3 font-mono font-semibold text-gray-600 dark:text-gray-300">
+                    <td className="py-3 px-3 font-mono text-[10.5px] tracking-tight font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {p.sku}
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
                         {p.standard || "vietgap"}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <p className="font-black text-emerald-600 dark:text-emerald-400">{formatVnd(p.price)}</p>
                       {p.originalPrice && p.originalPrice > p.price && (
                         <p className="text-[11px] text-gray-400 line-through">
@@ -452,7 +452,7 @@ export default function AdminProductsPage() {
                         </p>
                       )}
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span
                         className={`font-bold ${
                           p.stockQuantity <= 40
@@ -466,10 +466,10 @@ export default function AdminProductsPage() {
                         <span className="block text-[10px] text-red-500 font-semibold">⚠️ Sắp hết</span>
                       )}
                     </td>
-                    <td className="py-3 px-3 text-gray-600 dark:text-gray-300">
+                    <td className="py-3 px-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                       ⭐ {p.rating || 5.0} <span className="text-gray-400">({p.reviewCount || 0})</span>
                     </td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3 px-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleOpenEdit(p)}

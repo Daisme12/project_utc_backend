@@ -297,10 +297,11 @@ export const adminService = {
 
   // 1. Dashboard
   async getDashboardStats() {
-    const [productsRes, ordersRes, usersRes] = await Promise.all([
+    const [productsRes, ordersRes, usersRes, receiptsRes] = await Promise.all([
       this.getProducts(),
       this.getOrders(),
-      this.getUsers()
+      this.getUsers(),
+      this.getGoodsReceipts()
     ]);
 
     const sortedOrders = [...ordersRes.data].sort((a, b) => {
@@ -312,13 +313,23 @@ export const adminService = {
       return (Number(b.id) || 0) - (Number(a.id) || 0);
     });
 
-    const totalRevenue = ordersRes.data.reduce((acc, order) => acc + (order.orderStatus === "COMPLETED" ? order.finalAmount : 0), 0);
+    const totalRevenue = ordersRes.data.reduce((acc, order) => acc + (order.orderStatus === "COMPLETED" ? Number(order.finalAmount || 0) : 0), 0);
+    const totalImportCost = (receiptsRes.data || []).reduce((acc, r) => {
+      const cost = r.totalCost !== undefined && r.totalCost !== null
+        ? Number(r.totalCost)
+        : Number(r.quantity || 0) * Number(r.importPrice || 0);
+      return acc + (isNaN(cost) ? 0 : cost);
+    }, 0);
+    const totalProfitLoss = totalRevenue - totalImportCost;
     const completedOrders = ordersRes.data.filter(o => o.orderStatus === "COMPLETED").length;
     const pendingOrders = ordersRes.data.filter(o => o.orderStatus === "PENDING" || o.orderStatus === "PROCESSING").length;
     const lowStockProducts = productsRes.data.filter(p => p.stockQuantity <= 40).length;
 
     return {
       totalRevenue,
+      totalImportCost,
+      totalProfitLoss,
+      totalReceipts: (receiptsRes.data || []).length,
       totalOrders: ordersRes.data.length,
       completedOrders,
       pendingOrders,
@@ -326,7 +337,9 @@ export const adminService = {
       lowStockProducts,
       totalUsers: usersRes.data.length,
       recentOrders: sortedOrders.slice(0, 5),
-      isFallback: productsRes.isFallback || ordersRes.isFallback
+      allOrders: sortedOrders,
+      allProducts: productsRes.data,
+      isFallback: productsRes.isFallback || ordersRes.isFallback || receiptsRes.isFallback
     };
   },
 

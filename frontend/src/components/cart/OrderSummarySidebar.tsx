@@ -12,6 +12,8 @@ interface OrderSummarySidebarProps {
   onPlaceOrder: (finalTotal: number, voucherCode?: string) => void;
   onFinalTotalChange?: (finalTotal: number, voucherCode?: string) => void;
   isProcessing?: boolean;
+  isInfoComplete?: boolean;
+  onRequireInfo?: () => void;
 }
 
 export default function OrderSummarySidebar({
@@ -21,6 +23,8 @@ export default function OrderSummarySidebar({
   onPlaceOrder,
   onFinalTotalChange,
   isProcessing = false,
+  isInfoComplete = true,
+  onRequireInfo,
 }: OrderSummarySidebarProps) {
   const [voucherInput, setVoucherInput] = useState("");
   const [isCheckingVoucher, setIsCheckingVoucher] = useState(false);
@@ -267,13 +271,43 @@ export default function OrderSummarySidebar({
           </div>
         </div>
 
+        {/* Warning banner when info is missing */}
+        {hasItems && !isInfoComplete && (
+          <div
+            onClick={onRequireInfo}
+            className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 cursor-pointer hover:bg-amber-100/80 transition-colors shadow-xs"
+          >
+            <span className="text-lg leading-none flex-shrink-0">⚠️</span>
+            <div className="flex-1">
+              <p className="font-extrabold text-[12px]">Chưa nhập thông tin nhận hàng</p>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
+                Vui lòng bổ sung Họ tên, Số điện thoại và Địa chỉ để kích hoạt thanh toán.
+              </p>
+              <span className="inline-block mt-1.5 text-[11px] font-bold text-[#195329] dark:text-emerald-400 underline">
+                👉 Nhập thông tin ngay
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Big Action CTA Button */}
         <button
           type="button"
-          disabled={!hasItems || isProcessing}
-          onClick={() => onPlaceOrder(finalTotal, appliedVoucher?.code)}
+          disabled={!hasItems || isProcessing || !isInfoComplete}
+          onClick={() => {
+            if (!hasItems) {
+              toast.error("Vui lòng chọn ít nhất 1 sản phẩm để đặt hàng!");
+              return;
+            }
+            if (!isInfoComplete) {
+              toast.error("Vui lòng nhập đầy đủ thông tin giao hàng trước khi thanh toán!");
+              onRequireInfo?.();
+              return;
+            }
+            onPlaceOrder(finalTotal, appliedVoucher?.code);
+          }}
           className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all ${
-            !hasItems || isProcessing
+            !hasItems || isProcessing || !isInfoComplete
               ? "bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-gray-500 cursor-not-allowed shadow-none"
               : "bg-[#195329] hover:bg-[#12421f] text-white shadow-emerald-950/20 active:scale-98 cursor-pointer"
           }`}
@@ -285,6 +319,8 @@ export default function OrderSummarySidebar({
             </>
           ) : !hasItems ? (
             <span>VUI LÒNG CHỌN MÓN ĐỂ ĐẶT HÀNG</span>
+          ) : !isInfoComplete ? (
+            <span>VUI LÒNG NHẬP THÔNG TIN NHẬN HÀNG</span>
           ) : paymentMethod === "vnpay" ? (
             <>
               <span>XÁC NHẬN THANH TOÁN VNPAY</span>
